@@ -455,8 +455,8 @@ if __name__ == "__main__":
         description="--- Compare a IDS from multiple date entries and returns True or "
         "False with option of generating html page with comparison \n"
         "- Example: \n"
-        '  idsdiff summary --uri "imas:mdsplus?user=public;shot=122525;run=1;database=ITER;version=3" '
-        '  "imas:mdsplus?user=public;shot=122525;run=2;database=ITER;version=3" \n'
+        '  idsdiff --uri "imas:mdsplus?user=public;shot=122525;run=1;database=ITER;version=3#summary" '
+        '  "imas:mdsplus?user=public;shot=122525;run=2;database=ITER;version=3#summary" \n'
         "  \n",
         formatter_class=RichHelpFormatter,
         usage="%(prog)s -h",
