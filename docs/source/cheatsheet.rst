@@ -251,11 +251,11 @@ This cheat sheet provides quick reference of commonly used commands in IDStools.
 |                               |                                                                                                                                     |
 |                               | .. code-block:: bash                                                                                                                |
 |                               |                                                                                                                                     |
-|                               |    $ idsdiff --ids summary --uri "imas:mdsplus?user=public;pulse=122525;run=1;database=ITER;version=3"                              |
-|                               |    "imas:mdsplus?user=public;pulse=122525;run=2;database=ITER;version=3"                                                            |
+|                               |    $ idsdiff --uri "imas:mdsplus?user=public;pulse=122525;run=1;database=ITER;version=3#summary"                                    |
+|                               |    "imas:mdsplus?user=public;pulse=122525;run=2;database=ITER;version=3#summary"                                                    |
 |                               |                                                                                                                                     |
-|                               |    $ idsdiff --ids summary --uri "imas:mdsplus?user=public;pulse=130011;run=6;database=ITER;version=3"                              |
-|                               |    "imas:mdsplus?user=public;pulse=130012;run=4;database=ITER;version=3"                                                            |
+|                               |    $ idsdiff --uri "imas:mdsplus?user=public;pulse=130011;run=6;database=ITER;version=3#summary"                                    |
+|                               |    "imas:mdsplus?user=public;pulse=130012;run=4;database=ITER;version=3#summary"                                                    |
 |                               |                                                                                                                                     | 
 |                               |    $ idsdiff --uri "imas:mdsplus?user=public;pulse=122481;run=1;database=ITER;version=3                                             |
 |                               |    #edge_profiles/ggd[:]/electrons/density[1].values"                                                                               |
@@ -278,8 +278,8 @@ This cheat sheet provides quick reference of commonly used commands in IDStools.
 |                               |    $ idsdiff --uri "imas:mdsplus?user=public;pulse=130011;run=6;database=ITER;version=3#summary"                                    |
 |                               |    "imas:mdsplus?user=public;pulse=130012;run=4;database=ITER;version=3#summary"                                                    |
 |                               |                                                                                                                                     |
-|                               |    $ idsdiff --ids summary --uri "imas:mdsplus?user=public;pulse=122525;run=1;database=ITER;version=3"                              |
-|                               |    "imas:mdsplus?user=public;pulse=122525;run=2;database=ITER;version=3"                                                            |
+|                               |    $ idsdiff --uri "imas:mdsplus?user=public;pulse=122525;run=1;database=ITER;version=3#summary"                              |
+|                               |    "imas:mdsplus?user=public;pulse=122525;run=2;database=ITER;version=3#summary"                                                            |
 |                               |                                                                                                                                     |
 +-------------------------------+-------------------------------------------------------------------------------------------------------------------------------------+
 | *idslist*                     | Shows list of all idses along with count of time slices.                                                                            |

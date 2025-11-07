@@ -20,7 +20,7 @@ graph.
    .. code-block:: bash
 
       # Compare with specific idses using --ids option
-      $ idsdiff --ids --uri "imas:mdsplus?user=public;pulse=122525;run=1;database=ITER;version=3#summary" "imas:mdsplus?user=public;pulse=122525;run=2;database=ITER;version=3#summary"
+      $ idsdiff --uri "imas:mdsplus?user=public;pulse=122525;run=1;database=ITER;version=3#summary" "imas:mdsplus?user=public;pulse=122525;run=2;database=ITER;version=3#summary"
                                     First: imas:mdsplus?user=public;pulse=122525;run=1;database=ITER;version=3 (summary) -                              
                                     Second: imas:mdsplus?user=public;pulse=122525;run=2;database=ITER;version=3 (summary)                               
       ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
