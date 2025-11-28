@@ -4,7 +4,7 @@
 
 Traditional tools to handle scenario database.
 Use simdb tool to upload/find scenario database
-`simdb documentation` https://sharepoint.iter.org/departments/POP/CM/IMDesign/Code%20Documentation/simdb-doc/html/index.html
+`simdb documentation` https://simdb.readthedocs.io/en/latest/
 
 .. toctree::
    :maxdepth: 1
