@@ -103,9 +103,10 @@ To build the *IDStools* documentation, execute:
 .. code-block:: bash
 
    $ pip install .[docs]
-   $ python setup.py builddocs
-   $ python setup.py builddocs --format man
-
+   $ make -C docs realclean
+   $ make -C docs autogen
+   $ make -C docs html
+   $ make -C docs man
 
 Code formatting is done with the black
 
