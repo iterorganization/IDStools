@@ -15,7 +15,7 @@ uri_parser.add_argument(
     "--uri",
     type=str,
     required=True,
-    help="uri",
+    help="URI of the dataentry\t(e.g, imas:hdf5?path=./testdb or ./testpulse.nc)",
 )
 
 imas_parser = argparse.ArgumentParser(add_help=False)
