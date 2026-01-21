@@ -36,7 +36,8 @@ if __name__ == "__main__":
         nargs="*",
         type=str,
         required=True,
-        help="uri separated by spaces if comparing\t\t(default=%(default)s)",
+        help="uri separated by spaces if comparing\t\t(default=%(default)s)"
+        '(e.g. "imas:hdf5?path=./testdb" "./testpulse.nc")',
     )
     parser.add_argument(
         "--dd-update",

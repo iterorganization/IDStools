@@ -465,7 +465,7 @@ if __name__ == "__main__":
         "-showuri",
         "--showuri",
         action="store_true",
-        help="Show uri",
+        help="Show uri (e.g. imas:hdf5?path=./testdb or ./testpulse.nc)",
     )
     parser.add_argument("positionalArgs", nargs="?", default=os.getcwd())
 

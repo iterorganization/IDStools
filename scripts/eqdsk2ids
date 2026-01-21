@@ -128,7 +128,7 @@ if __name__ == "__main__":
         "--dest",
         type=str,
         required=True,
-        help="destination uri",
+        help="destination uri (e.g. imas:hdf5?path=./testdb or ./testpulse.nc)",
     )
     parser.add_argument(
         "-f",

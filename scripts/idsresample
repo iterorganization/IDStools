@@ -36,14 +36,14 @@ if __name__ == "__main__":
         "--src",
         type=str,
         required=True,
-        help="source uri",
+        help="source uri (e.g. imas:hdf5?path=./testdb1 or ./testpulse1.nc)",
     )
     parser.add_argument(
         "-d",
         "--dest",
         type=str,
         required=True,
-        help="destination uri",
+        help="destination uri (e.g. imas:hdf5?path=./testdb2 or ./testpulse2.nc)",
     )
     parser.add_argument(
         "--dd-update",
