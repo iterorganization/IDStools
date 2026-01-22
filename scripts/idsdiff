@@ -151,8 +151,7 @@ def generate_html(file_path, compare_data):
                         <th class="col-2">{pulse_b}</th>
                         <tr>
                     </thead>"""
-    file_object.write(
-        f"""<!DOCTYPE html>
+    file_object.write(f"""<!DOCTYPE html>
             <html lang="en">
                 {report_header_string}
                 <body>
@@ -165,8 +164,7 @@ def generate_html(file_path, compare_data):
                     <div class="table-responsive" >
                     <table class="table table-bordered table-striped table-hover table-sm align-top">
                     <caption>List of differences</caption>
-                        {report_table_header}<tbody>"""
-    )
+                        {report_table_header}<tbody>""")
     plot_counter = 0
     for idsname, values in data.items():
 
@@ -439,13 +437,11 @@ data-bs-target="#plot{plot_counter}">See details</button>
                     </tr>"""
             report_field_difference += report_diff_line
         file_object.write(f"""   {report_field_difference}""")
-    file_object.write(
-        """</tbody></table>
+    file_object.write("""</tbody></table>
                     </div>
                 </body>
             </html>
-            """
-    )
+            """)
     file_object.close()
 
 
@@ -469,8 +465,7 @@ if __name__ == "__main__":
         nargs="*",
         type=str,
         required=True,
-        help="uri separated by spaces \t\t(default=%(default)s)"
-        '(e.g. "imas:hdf5?path=./testdb" "./testpulse.nc")',
+        help="uri separated by spaces \t\t(default=%(default)s)" '(e.g. "imas:hdf5?path=./testdb" "./testpulse.nc")',
     )
     parser.add_argument("-t", "--time", help="Time", required=False, type=float, default=None)
     parser.add_argument(
