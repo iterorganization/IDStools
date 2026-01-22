@@ -21,6 +21,7 @@ from idstools.utils.clihelper import (
     get_file_name,
     get_title,
     rcparam_parser,
+    dbentry_parser,
 )
 from idstools.utils.idslogger import setup_logger
 from idstools.view.common import PlotCanvas
@@ -35,13 +36,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="---- Shows electron cyclotron stray radiation information by showing different plots",
         formatter_class=RichHelpFormatter,
-        parents=[rcparam_parser],
-    )
-    parser.add_argument(
-        "-u",
-        "--uri",
-        type=str,
-        help="uri",
+        parents=[dbentry_parser, rcparam_parser],
     )
     parser.add_argument("-t", "--time", help="Time (default=middle)", type=float, default=-99.0)
     parser.add_argument(

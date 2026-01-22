@@ -244,25 +244,29 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-ech",
-        help="uri or pulse/run/user/backend/database/[time] for ECH results (waves)",
+        help="uri(e.g. imas:hdf5?path=./testdb or ./testpulse.nc) or "
+        "pulse/run/user/backend/database/[time] for ECH results (waves)",
         required=False,
         type=str,
     )
     parser.add_argument(
         "-icrh",
-        help="uri or pulse/run/user/backend/database/version/[time] for ICRH results (distributions)",
+        help="uri(e.g. imas:hdf5?path=./testdb or ./testpulse.nc) or "
+        "pulse/run/user/backend/database/version/[time] for ICRH results (distributions)",
         required=False,
         type=str,
     )
     parser.add_argument(
         "-nbi",
-        help="uri or pulse/run/user/backend/database/version/[time] for NBI results (distributions)",
+        help="uri(e.g. imas:hdf5?path=./testdb or ./testpulse.nc) or "
+        "pulse/run/user/backend/database/version/[time] for NBI results (distributions)",
         required=False,
         type=str,
     )
     parser.add_argument(
         "-fus",
-        help="uri or pulse/run/user/backend/database/version/[time] for fusion products (distributionss)",
+        help="uri(e.g. imas:hdf5?path=./testdb or ./testpulse.nc) or "
+        "pulse/run/user/backend/database/version/[time] for fusion products (distributions)",
         required=False,
         type=str,
     )

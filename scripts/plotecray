@@ -57,8 +57,10 @@ if __name__ == "__main__":
         help="""Provide machine descriptions that you need to plot\n
     with ids names for example wall pf_active \n
     or with uris for example\n
-    "imas:mdsplus?user=public;shot=116000;run=4;database=ITER_MD;version=3#wall"\n
-    "imas:mdsplus?user=public;shot=116000;run=4;database=ITER_MD;version=3"\n
+    "imas:mdsplus?user=public;shot=116000;run=4;database=ITER_MD;version=3#wall",
+    "imas:mdsplus?user=public;shot=116000;run=4;database=ITER_MD;version=3",
+    "imas:hdf5?path=./testdb",
+    "testpulse.nc"
     """,
     )
     parser.add_argument("-t", "--time", help="Time", required=False, type=float, default=-99.0)

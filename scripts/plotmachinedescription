@@ -35,9 +35,11 @@ if __name__ == "__main__":
         default=[],
         help="""Provide machine descriptions that you need to plot\n
     with uris for example\n
-    "imas:mdsplus?user=public;pulse=116000;run=4;database=ITER_MD;version=3#wall"\n
-    "imas:mdsplus?user=public;pulse=116000;run=4;database=ITER_MD#wall:0/description2d[0]/vessel/unit[:]"
-    "imas:mdsplus?user=public;pulse=116000;run=4;database=ITER_MD;version=3"\n
+    "imas:mdsplus?user=public;pulse=116000;run=4;database=ITER_MD;version=3#wall",
+    "imas:mdsplus?user=public;pulse=116000;run=4;database=ITER_MD#wall:0/description2d[0]/vessel/unit[:]",
+    "imas:mdsplus?user=public;pulse=116000;run=4;database=ITER_MD;version=3",
+    "imas:hdf5?path=./testdb",
+    "testpulse.nc"
     """,
     )
     parser.add_argument(

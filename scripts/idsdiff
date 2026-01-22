@@ -465,7 +465,7 @@ if __name__ == "__main__":
         nargs="*",
         type=str,
         required=True,
-        help="uri separated by spaces \t\t(default=%(default)s)" '(e.g. "imas:hdf5?path=./testdb" "./testpulse.nc")',
+        help="uri separated by spaces " '(e.g. "imas:hdf5?path=./testdb" "./testpulse.nc")' "\n",
     )
     parser.add_argument("-t", "--time", help="Time", required=False, type=float, default=None)
     parser.add_argument(

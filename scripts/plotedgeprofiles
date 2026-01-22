@@ -50,7 +50,7 @@ if __name__ == "__main__":
         "-w",
         "--walluri",
         type=str,
-        help="Show wall from this uri",
+        help="Show wall ids from this uri (e.g. imas:hdf5?path=./testdb or ./testpulse.nc)",
     )
     parser.add_argument(
         "--logscale",
