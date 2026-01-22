@@ -53,16 +53,14 @@ if __name__ == "__main__":
 
     if args.info:
         logger.info("----------------------------------------------------------------")
-        logger.info(
-            """
+        logger.info("""
             a       = Mass of atom [Atomic Mass Unit]
             z       = Nuclear charge [Elementary Charge Unit]
             ne      = sum(volume * electron_density)
             volume  = sum(volume of each cell)
             nspec_over_ntot : Species density list / Sum of Species Density (ntot)
             nspec_over_ne   : Species density list / Total no. electrons (ne)
-            nspec_over_nmaj : Species density list / Species density[Index of Maximum Density Species]"""
-        )
+            nspec_over_nmaj : Species density list / Species density[Index of Maximum Density Species]""")
         logger.info("----------------------------------------------------------------")
     connection = DBMaster.get_connection(args)
     if connection is None:

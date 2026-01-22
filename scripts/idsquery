@@ -18,6 +18,7 @@ Example:
     idsquery -u "imas:hdf5?user=public;pulse=134174;run=117;database=ITER;version=3"
     "core_profiles/profiles_1d(:)/electrons/temperature" --query "mean(x1)"
 """
+
 # -*- coding: utf-8 -*-
 import argparse
 import logging

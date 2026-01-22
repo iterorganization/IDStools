@@ -167,21 +167,15 @@ if __name__ == "__main__":
                     "in both backends. The intersection of the two will be used."
                 )
                 if args.verbose:
-                    print(
-                        """The differences are:
-                    MDSPLUS has: """
-                    )
+                    print("""The differences are:
+                    MDSPLUS has: """)
                     print(list(mdsrem))
-                    print(
-                        """
-                    """
-                    )
+                    print("""
+                    """)
                     print("while HDF5 has: ")
                     print(list(hdfrem))
-                    print(
-                        """
-                    The intersection of the two databases that will be used is: """
-                    )
+                    print("""
+                    The intersection of the two databases that will be used is: """)
                     print(pulses)
 
             else:
