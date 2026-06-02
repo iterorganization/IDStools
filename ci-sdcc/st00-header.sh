@@ -13,7 +13,7 @@ shopt -s expand_aliases
 #print hostname
 hostname -f
 
-IMAS_EXISTS=$(module -r -t list 2>&1 | grep -E "IMAS-AL-Core|IMAS-Core"  | head -n 1) 
+IMAS_EXISTS=$(module -r -t list 2>&1 | grep -E "IMAS-Core"  | head -n 1) 
 if [ -n "$IMAS_EXISTS" ]; then
     echo "> Found already loaded IMAS Module : $IMAS_EXISTS"
     ACCESS_LAYER_VERSION=$(echo "$AL_VERSION" | cut -d '.' -f 1)

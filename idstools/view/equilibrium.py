@@ -215,7 +215,7 @@ class EquilibriumView(BasePlot):
             ax.xaxis.tick_top()
             ax.xaxis.set_label_position("top")
 
-            contour_lines = ax.contour(r2d, z2d, psi2d, levels=50, cmap="summer")  # ,label=r'$\Psi_{pol}$')
+            contour_lines = ax.contour(r2d, z2d, psi2d.T, levels=50, cmap="summer")  # ,label=r'$\Psi_{pol}$')
             cbar = plt.colorbar(contour_lines, ax=ax, pad=0.08, fraction=0.03)
             cbar.set_label(r"$\psi$ [Wb]")
             ax.set_xlim(r2d.min(), r2d.max())

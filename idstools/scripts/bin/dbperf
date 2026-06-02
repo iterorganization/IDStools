@@ -195,13 +195,39 @@ if __name__ == "__main__":
             pulse = entry[0]
             run = entry[1]
 
+            _dummy_hdfde = imas.DBEntry(
+                imas.ids_defs.HDF5_BACKEND, args.database, pulse, run, args.user, data_version=args.version
+            )
+            _dummy_hdfde.open()
+            availables_ids = get_available_ids_and_occurrences(_dummy_hdfde)
+            for idsname, occurrence in availables_ids:
+                try:
+                    _dummy = _dummy_hdfde.get(idsname, lazy=True, autoconvert=False)
+                    src_dd_version = _dummy.ids_properties.version_put.data_dictionary.value
+                    break
+                except Exception as e:
+                    pass
+            _dummy_hdfde.close()
+
             mdsde = imas.DBEntry(
-                imas.ids_defs.MDSPLUS_BACKEND, args.database, pulse, run, args.user, data_version=args.version
+                imas.ids_defs.MDSPLUS_BACKEND,
+                args.database,
+                pulse,
+                run,
+                args.user,
+                data_version=args.version,
+                dd_version=src_dd_version,
             )
             mdsde.open()
 
             hdfde = imas.DBEntry(
-                imas.ids_defs.HDF5_BACKEND, args.database, pulse, run, args.user, data_version=args.version
+                imas.ids_defs.HDF5_BACKEND,
+                args.database,
+                pulse,
+                run,
+                args.user,
+                data_version=args.version,
+                dd_version=src_dd_version,
             )
             hdfde.open()
 
@@ -253,7 +279,6 @@ if __name__ == "__main__":
 
             mdsde.close()
             hdfde.close()
-
             if args.verbose:
                 print("MDSPLUS database closed")
                 print("HDF5 database closed")
