@@ -17,11 +17,11 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python ${{ matrix.python-version }}
 
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - name: Display Python version
@@ -40,7 +40,7 @@ jobs:
           TEST_PROFILE: ci
 
       - name: Upload coverage report ${{ matrix.python-version }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report-${{ matrix.python-version }}
           path: htmlcov
@@ -48,7 +48,7 @@ jobs:
 
       - name: Upload coverage XML ${{ matrix.python-version }}
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-xml-${{ matrix.python-version }}
           path: coverage.xml
@@ -56,7 +56,7 @@ jobs:
 
       - name: Upload test report ${{ matrix.python-version }}
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-report-${{ matrix.python-version }}
           path: junit.xml
@@ -64,7 +64,7 @@ jobs:
 
       - name: Upload test output logs ${{ matrix.python-version }}
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-output-${{ matrix.python-version }}
           path: test_output.log
