@@ -21,25 +21,26 @@ def _is_jupyter() -> bool:
         return False
 
 
-# Select the appropriate matplotlib backend
-if _is_jupyter():
-    if "matplotlib.pyplot" not in sys.modules:
+# Select the appropriate matplotlib backend.
+# Honour an explicit MPLBACKEND env var set by CI/scripts — never override it.
+if not os.environ.get("MPLBACKEND") and "matplotlib.pyplot" not in sys.modules:
+    if _is_jupyter():
         try:
             import ipympl  # noqa: F401 - imported to check availability
 
             matplotlib.use("widget")
         except ImportError:
             matplotlib.use("agg")
-elif sys.platform.startswith("win") or "DISPLAY" in os.environ:
+    elif sys.platform.startswith("win") or "DISPLAY" in os.environ:
+        try:
+            import tkinter  # noqa: F401 - imported to check availability
 
-    try:
-        import tkinter  # noqa: F401 - imported to check availability
-
-        matplotlib.use("TkAgg")
-    except (ImportError, ModuleNotFoundError):
+            matplotlib.use("TkAgg")
+        except Exception:
+            # ImportError, ModuleNotFoundError, TclError, or SIGILL-prone libs
+            matplotlib.use("agg")
+    else:
         matplotlib.use("agg")
-else:
-    matplotlib.use("agg")
 
 import matplotlib.pyplot as plt  # noqa: E402
 

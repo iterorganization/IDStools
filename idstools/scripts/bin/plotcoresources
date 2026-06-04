@@ -5,6 +5,8 @@ import argparse
 import logging
 import os
 
+import matplotlib
+
 try:
     import imaspy as imas
 except ImportError:
@@ -72,9 +74,11 @@ if __name__ == "__main__":
     time_slice, time_value = get_nearest_time(time_array, args.time)
     ntime = len(time_array)
     nsources = len(core_sources.source)
+    logger.info(f"ntime={ntime}, nsources={nsources}, backend={matplotlib.get_backend()}")
 
     core_source_view = CoreSourcesView(core_sources)
 
+    logger.info("Creating plot canvas")
     canvas = PlotCanvas(2, 4)
     canvas.update_style(args.rc)
     ret = ax_power_profiles = canvas.add_axes(title=r"Power Profiles [MW/M3]", row=0, col=0)
