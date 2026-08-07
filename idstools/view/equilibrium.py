@@ -186,10 +186,10 @@ class EquilibriumView(BasePlot):
 
         if plot_boundary_outline:
             bd = self.compute_obj.get_boundary_data(time_slice)
-            if bd["bnd_r"] is not None and bd["bnd_z"] is not None:
+            if bd["bnd_outline"] is not None:
                 (boundary_line,) = ax.plot(
-                    bd["bnd_r"],
-                    bd["bnd_z"],
+                    bd["bnd_outline"][0],
+                    bd["bnd_outline"][1],
                     color="royalblue",
                     linewidth=2.0,
                     linestyle="-",
@@ -201,23 +201,13 @@ class EquilibriumView(BasePlot):
                 overlay_entries.append((proxy_boundary, [boundary_line]))
 
         if plot_boundary_data:
-
             bd = self.compute_obj.get_boundary_data(time_slice)
-
-            separatrix_is_boundary = (
-                bd["bnd_r"] is not None
-                and bd["bnd_z"] is not None
-                and bd["sep_r"] is not None
-                and bd["sep_z"] is not None
-                and np.array_equal(np.asarray(bd["sep_r"]), np.asarray(bd["bnd_r"]))
-                and np.array_equal(np.asarray(bd["sep_z"]), np.asarray(bd["bnd_z"]))
-            )
-
+            
             # boundary_separatrix outline
-            if bd["sep_r"] is not None and bd["sep_z"] is not None and not separatrix_is_boundary:
+            for sep in bd["sep_outlines"]:
                 (sep_line,) = ax.plot(
-                    bd["sep_r"],
-                    bd["sep_z"],
+                    sep[0],
+                    sep[1],
                     color="firebrick",
                     linewidth=2.0,
                     linestyle="--",
@@ -229,10 +219,10 @@ class EquilibriumView(BasePlot):
                 overlay_entries.append((proxy_sep_bnd, [sep_line]))
 
             # geometric axis
-            if bd["bnd_geom_r"] is not None and bd["bnd_geom_z"] is not None:
+            if bd["bnd_geom_axis"] is not None:
                 (gax_marker,) = ax.plot(
-                    bd["bnd_geom_r"],
-                    bd["bnd_geom_z"],
+                    bd["bnd_geom_axis"][0],
+                    bd["bnd_geom_axis"][1],
                     marker="x",
                     color="darkcyan",
                     markersize=6,
