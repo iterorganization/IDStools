@@ -404,7 +404,7 @@ class EquilibriumCompute:
                         f"get_boundary_data: contour_tree.node[{node_index}] saddle has invalid r/z " f"({xr}, {xz})"
                     )
 
-                #if sep_r is not None and sep_z is not None:
+                # if sep_r is not None and sep_z is not None:
                 #    continue
 
                 try:
@@ -424,12 +424,12 @@ class EquilibriumCompute:
                     continue
 
                 if r is not None and z is not None:
-                    sep_outlines.append((_clean(r),_clean(z)))
+                    sep_outlines.append((_clean(r), _clean(z)))
 
             logger.debug(
                 "get_boundary_data: contour_tree summary "
                 f"(nodes={n_nodes}, saddles={n_saddles}, xpoints={len(xpoints)}, "
-                f"has_separatrix={len(sep_outlines)>0})"
+                f"has_separatrix={len(sep_outlines) > 0})"
             )
 
             return sep_outlines, xpoints
@@ -479,7 +479,7 @@ class EquilibriumCompute:
             gax_r = float(ts.boundary.geometric_axis.r)
             gax_z = float(ts.boundary.geometric_axis.z)
             if _valid_scalar(gax_r) and _valid_scalar(gax_z):
-                result["bnd_geom_axis"] = (gax_r,gax_z)
+                result["bnd_geom_axis"] = (gax_r, gax_z)
         except Exception as exc:
             logger.debug(
                 f"get_boundary_data: could not read time_slice[{time_slice}]/boundary/geometric_axis/r|z: {exc}"
@@ -489,7 +489,7 @@ class EquilibriumCompute:
         if hasattr(ts, "boundary_separatrix"):
             sep = ts.boundary_separatrix
             try:
-                sep_outline = _read_outline(sep) 
+                sep_outline = _read_outline(sep)
                 if sep_outline is not None:
                     (result["sep_outlines"]).append(sep_outline)
                 sep_xpoints = _read_points(sep, "x_point", f"time_slice[{time_slice}]/boundary_separatrix")
@@ -500,7 +500,7 @@ class EquilibriumCompute:
                     (result["sep_strikepoints"]).append(sp)
                 logger.debug(
                     f"get_boundary_data: time_slice[{time_slice}]/boundary_separatrix summary "
-                    f"(has_outline={len(result['sep_outlines'])>0}, "
+                    f"(has_outline={len(result['sep_outlines']) > 0}, "
                     f"xpoints={len(sep_xpoints)}, strikepoints={len(sep_strikepoints)})"
                 )
             except Exception as exc:
@@ -516,16 +516,20 @@ class EquilibriumCompute:
                 sep_xpoints = _read_points(sep, "x_point", f"time_slice[{time_slice}]/boundary_secondary_separatrix")
                 for xp in sep_xpoints:
                     (result["sep_xpoints"]).append(xp)
-                sep_strikepoints = _read_points(sep, "strike_point", f"time_slice[{time_slice}]/boundary_secondary_separatrix")
+                sep_strikepoints = _read_points(
+                    sep, "strike_point", f"time_slice[{time_slice}]/boundary_secondary_separatrix"
+                )
                 for sp in sep_strikepoints:
                     (result["sep_strikepoints"]).append(sp)
                 logger.debug(
                     f"get_boundary_data: time_slice[{time_slice}]/boundary_secondary_separatrix summary "
-                    f"(has_outline={len(result['sep_outlines'])>1}, "
+                    f"(has_outline={len(result['sep_outlines']) > 1}, "
                     f"xpoints={len(sep_xpoints)}, strikepoints={len(sep_strikepoints)})"
                 )
             except Exception as exc:
-                logger.debug(f"get_boundary_data: could not read time_slice[{time_slice}]/boundary_secondary_separatrix: {exc}")
+                logger.debug(
+                    f"get_boundary_data: could not read time_slice[{time_slice}]/boundary_secondary_separatrix: {exc}"
+                )
 
         #  contour_tree.node (DD4)
         if hasattr(ts, "contour_tree") and hasattr(ts.contour_tree, "node"):
@@ -538,10 +542,10 @@ class EquilibriumCompute:
                 (result["sep_xpoints"]).append(xp)
 
         # Separatrix fallback when boundary_separatrix / contour_tree provided nothing.
-        if len(result["sep_outlines"])<0:
+        if len(result["sep_outlines"]) < 0:
             if result["bnd_type"] == 1:
                 # type=1 (diverted): boundary/outline IS the separatrix — reuse directly.
-                if result["bnd_outline"] is not None: 
+                if result["bnd_outline"] is not None:
                     result["sep_outlines"] = [result["bnd_outline"]]
                     logger.debug(
                         f"get_boundary_data: time_slice[{time_slice}]/boundary/outline/r|z "
@@ -556,7 +560,7 @@ class EquilibriumCompute:
                     mask = r_raw > 0
                     r_raw, z_raw = _clean(r_raw[mask]), _clean(z_raw[mask])
                     if r_raw.size > 0:
-                        result["sep_outlines"] = [(r_raw,z_raw)]
+                        result["sep_outlines"] = [(r_raw, z_raw)]
                         logger.debug(
                             f"get_boundary_data: time_slice[{time_slice}]/boundary/lcfs/r|z "
                             f"— sep outline filled (type=2 limiter)"
@@ -567,7 +571,7 @@ class EquilibriumCompute:
         logger.debug(
             "get_boundary_data: final summary "
             f"(has_boundary={result['bnd_outline'] is not None}, "
-            f"has_separatrix={len(result['sep_outlines'])>0}, "
+            f"has_separatrix={len(result['sep_outlines']) > 0}, "
             f"xpoints={len(result['sep_xpoints'])}, strikepoints={len(result['sep_strikepoints'])})"
         )
 

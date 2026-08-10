@@ -202,7 +202,7 @@ class EquilibriumView(BasePlot):
 
         if plot_boundary_data:
             bd = self.compute_obj.get_boundary_data(time_slice)
-            
+
             # boundary_separatrix outline
             for sep in bd["sep_outlines"]:
                 (sep_line,) = ax.plot(
