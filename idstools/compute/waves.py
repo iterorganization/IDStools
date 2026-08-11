@@ -10,6 +10,8 @@ import logging
 
 import numpy as np
 
+from idstools.compute.common import get_compat_attr
+
 logger = logging.getLogger("module")
 
 
@@ -378,9 +380,9 @@ class WavesCompute:
                         single_power_waveform[iwave].append(
                             self.ids.coherent_wave[iwave].global_quantities[itime].electrons.power_thermal
                         )
-                        current_tor = getattr(
-                            self.ids.coherent_wave[iwave].global_quantities[itime], "current_tor", None
-                        ) or getattr(self.ids.coherent_wave[iwave].global_quantities[itime], "current_phi", None)
+                        current_tor = get_compat_attr(
+                            self.ids.coherent_wave[iwave].global_quantities[itime], "current_tor", "current_phi"
+                        )
 
                         single_current_waveform[iwave].append(current_tor)
                         total_power_waveform[itime] = (
@@ -426,18 +428,18 @@ class WavesCompute:
                                     total_absorbed_power
                                     + self.ids.coherent_wave[iwave].global_quantities[time_slice].power
                                 )
-                                current_tor = getattr(
-                                    self.ids.coherent_wave[iwave].global_quantities[time_slice], "current_tor", None
-                                ) or getattr(
-                                    self.ids.coherent_wave[iwave].global_quantities[time_slice], "current_phi", None
+                                current_tor = get_compat_attr(
+                                    self.ids.coherent_wave[iwave].global_quantities[time_slice],
+                                    "current_tor",
+                                    "current_phi",
                                 )
 
                                 total_eccd = total_eccd + current_tor
 
                     single_absorbed_power[iwave] = self.ids.coherent_wave[iwave].global_quantities[time_slice].power
-                    current_tor = getattr(
-                        self.ids.coherent_wave[iwave].global_quantities[time_slice], "current_tor", None
-                    ) or getattr(self.ids.coherent_wave[iwave].global_quantities[time_slice], "current_phi", None)
+                    current_tor = get_compat_attr(
+                        self.ids.coherent_wave[iwave].global_quantities[time_slice], "current_tor", "current_phi"
+                    )
                     single_eccd[iwave] = current_tor
                     if verbose:
                         logger.info(

@@ -11,6 +11,8 @@ from typing import Dict, Union
 
 import numpy as np
 
+from idstools.compute.common import get_compat_attr
+
 logger = logging.getLogger("module")
 
 
@@ -556,9 +558,9 @@ class CoreSourcesCompute:
                     current_parallel = self.ids.source[source_index].global_quantities[time_index].current_parallel
                     if current_parallel < -1.0e40:
                         current_parallel = 0.0
-                    torque_tor = getattr(
-                        self.ids.source[source_index].global_quantities[time_index], "torque_tor", None
-                    ) or getattr(self.ids.source[source_index].global_quantities[time_index], "torque_phi", None)
+                    torque_tor = get_compat_attr(
+                        self.ids.source[source_index].global_quantities[time_index], "torque_tor", "torque_phi"
+                    )
 
                     if torque_tor < 0:
                         torque_tor = 0.0

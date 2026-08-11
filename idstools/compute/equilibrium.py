@@ -179,9 +179,9 @@ class EquilibriumCompute:
         if list_of_profiles is not None:
             # TODO Check if we should always pick up first profile
             profile2d_index = list_of_profiles[0]
-            b_field_tor = getattr(
-                self.ids.time_slice[time_slice].profiles_2d[profile2d_index], "b_field_tor", None
-            ) or getattr(self.ids.time_slice[time_slice].profiles_2d[profile2d_index], "b_field_phi", None)
+            b_field_tor = get_compat_attr(
+                self.ids.time_slice[time_slice].profiles_2d[profile2d_index], "b_field_tor", "b_field_phi"
+            )
 
             b_total = np.sqrt(
                 self.ids.time_slice[time_slice].profiles_2d[profile2d_index].b_field_r ** 2
@@ -923,9 +923,9 @@ class EquilibriumCompute:
                     self.ids.time_slice[itime].global_quantities.psi_boundary * rescale_factor
                 )
 
-            b_field_tor = getattr(
-                self.ids.time_slice[itime].global_quantities.magnetic_axis, "b_field_tor", None
-            ) or getattr(self.ids.time_slice[itime].global_quantities.magnetic_axis, "b_field_phi", None)
+            b_field_tor = get_compat_attr(
+                self.ids.time_slice[itime].global_quantities.magnetic_axis, "b_field_tor", "b_field_phi"
+            )
 
             if b_field_tor.has_value:
                 if hasattr(equout.time_slice[itime].global_quantities.magnetic_axis, "b_field_tor"):
@@ -1118,8 +1118,8 @@ class EquilibriumCompute:
                             )
 
                 if Version(dd_version) > Version("3.5.0"):
-                    b_field_tor = getattr(self.ids.time_slice[itime].profiles_2d[i2d], "b_field_tor", None) or getattr(
-                        self.ids.time_slice[itime].profiles_2d[i2d], "b_field_phi", None
+                    b_field_tor = get_compat_attr(
+                        self.ids.time_slice[itime].profiles_2d[i2d], "b_field_tor", "b_field_phi"
                     )
                     if b_field_tor:
                         for ir in range(len(b_field_tor)):
@@ -1196,9 +1196,7 @@ class EquilibriumCompute:
                                 self.ids.time_slice[itime].ggd[iggd].b_field_z[i2].coefficients[i][j] * rescale_factor
                             )
 
-                    b_field_tor = getattr(self.ids.time_slice[itime].ggd[iggd], "b_field_tor", None) or getattr(
-                        self.ids.time_slice[itime].ggd[iggd], "b_field_phi", None
-                    )
+                    b_field_tor = get_compat_attr(self.ids.time_slice[itime].ggd[iggd], "b_field_tor", "b_field_phi")
 
                     for i in range(len(b_field_tor[i2].values)):
                         if hasattr(equout.time_slice[itime].ggd[iggd], "b_field_tor"):
