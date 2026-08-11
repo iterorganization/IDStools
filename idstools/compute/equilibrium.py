@@ -14,6 +14,7 @@ except ImportError:
     import imas
 import numpy as np
 
+from idstools.compute.common import get_compat_attr
 from idstools.database import DBMaster
 
 _IDS_VALID_THRESHOLD = abs(imas.ids_defs.EMPTY_FLOAT)
@@ -979,10 +980,14 @@ class EquilibriumCompute:
                     self.ids.time_slice[itime].profiles_1d.f_df_dpsi[i1d] * rescale_factor
                 )
 
-            for i1d in range(len(self.ids.time_slice[itime].profiles_1d.j_tor)):
-                equout.time_slice[itime].profiles_1d.j_tor[i1d] = (
-                    self.ids.time_slice[itime].profiles_1d.j_tor[i1d] * rescale_factor
-                )
+            j_tor_1d = get_compat_attr(self.ids.time_slice[itime].profiles_1d, "j_tor", "j_phi")
+            if j_tor_1d is not None:
+                if hasattr(equout.time_slice[itime].profiles_1d, "j_tor"):
+                    for i1d in range(len(j_tor_1d)):
+                        equout.time_slice[itime].profiles_1d.j_tor[i1d] = j_tor_1d[i1d] * rescale_factor
+                elif hasattr(equout.time_slice[itime].profiles_1d, "j_phi"):
+                    for i1d in range(len(j_tor_1d)):
+                        equout.time_slice[itime].profiles_1d.j_phi[i1d] = j_tor_1d[i1d] * rescale_factor
 
             for i1d in range(len(self.ids.time_slice[itime].profiles_1d.j_parallel)):
                 equout.time_slice[itime].profiles_1d.j_parallel[i1d] = (
@@ -1065,11 +1070,20 @@ class EquilibriumCompute:
                             self.ids.time_slice[itime].profiles_2d[i2d].phi[ir][iz] * rescale_factor
                         )
 
-                for ir in range(len(self.ids.time_slice[itime].profiles_2d[i2d].j_tor)):
-                    for iz in range(len(self.ids.time_slice[itime].profiles_2d[i2d].j_tor[ir])):
-                        equout.time_slice[itime].profiles_2d[i2d].j_tor[ir][iz] = (
-                            self.ids.time_slice[itime].profiles_2d[i2d].j_tor[ir][iz] * rescale_factor
-                        )
+                j_tor_2d = get_compat_attr(self.ids.time_slice[itime].profiles_2d[i2d], "j_tor", "j_phi")
+                if j_tor_2d is not None:
+                    if hasattr(equout.time_slice[itime].profiles_2d[i2d], "j_tor"):
+                        for ir in range(len(j_tor_2d)):
+                            for iz in range(len(j_tor_2d[ir])):
+                                equout.time_slice[itime].profiles_2d[i2d].j_tor[ir][iz] = (
+                                    j_tor_2d[ir][iz] * rescale_factor
+                                )
+                    elif hasattr(equout.time_slice[itime].profiles_2d[i2d], "j_phi"):
+                        for ir in range(len(j_tor_2d)):
+                            for iz in range(len(j_tor_2d[ir])):
+                                equout.time_slice[itime].profiles_2d[i2d].j_phi[ir][iz] = (
+                                    j_tor_2d[ir][iz] * rescale_factor
+                                )
 
                 for ir in range(len(self.ids.time_slice[itime].profiles_2d[i2d].j_parallel)):
                     for iz in range(len(self.ids.time_slice[itime].profiles_2d[i2d].j_parallel[ir])):
@@ -1145,14 +1159,15 @@ class EquilibriumCompute:
                                 self.ids.time_slice[itime].ggd[iggd].phi[i2].coefficients[i][j] * rescale_factor
                             )
 
-                    for i in range(len(self.ids.time_slice[itime].ggd[iggd].j_tor[i2].values)):
-                        equout.time_slice[itime].ggd[iggd].j_tor[i2].values[i] = (
-                            self.ids.time_slice[itime].ggd[iggd].j_tor[i2].values[i] * rescale_factor
-                        )
-                        for j in range(len(self.ids.time_slice[itime].ggd[iggd].j_tor[i2].values[i])):
-                            equout.time_slice[itime].ggd[iggd].j_tor[i2].coefficients[i][j] = (
-                                self.ids.time_slice[itime].ggd[iggd].j_tor[i2].coefficients[i][j] * rescale_factor
-                            )
+                    j_tor_ggd = get_compat_attr(self.ids.time_slice[itime].ggd[iggd], "j_tor", "j_phi")
+                    if j_tor_ggd is not None:
+                        equout_j_tor_ggd = get_compat_attr(equout.time_slice[itime].ggd[iggd], "j_tor", "j_phi")
+                        for i in range(len(j_tor_ggd[i2].values)):
+                            equout_j_tor_ggd[i2].values[i] = j_tor_ggd[i2].values[i] * rescale_factor
+                            for j in range(len(j_tor_ggd[i2].values[i])):
+                                equout_j_tor_ggd[i2].coefficients[i][j] = (
+                                    j_tor_ggd[i2].coefficients[i][j] * rescale_factor
+                                )
 
                     for i in range(len(self.ids.time_slice[itime].ggd[iggd].j_parallel[i2].values)):
                         equout.time_slice[itime].ggd[iggd].j_parallel[i2].values[i] = (
@@ -1716,8 +1731,9 @@ class EquilibriumCompute:
                     qpsi1D[i, :] = time_slice.profiles_1d.q
                 if time_slice.profiles_1d.pressure.size > 0 and press1D is not None:
                     press1D[i, :] = time_slice.profiles_1d.pressure
-                if time_slice.profiles_1d.j_tor.size > 0 and j_tor1D is not None:
-                    j_tor1D[i, :] = time_slice.profiles_1d.j_tor
+                j_tor_1d = get_compat_attr(time_slice.profiles_1d, "j_tor", "j_phi")
+                if j_tor_1d is not None and j_tor_1d.size > 0 and j_tor1D is not None:
+                    j_tor1D[i, :] = j_tor_1d
                 if time_slice.profiles_1d.r_inboard.size > 0 and rin1D is not None:
                     rin1D[i, :] = time_slice.profiles_1d.r_inboard
                 if time_slice.profiles_1d.r_outboard.size > 0 and rout1D is not None:
@@ -1766,8 +1782,9 @@ class EquilibriumCompute:
                         z2D[i, :, :] = time_slice.profiles_2d[0].z
                     if time_slice.profiles_2d[0].psi.size > 0 and psi2D is not None:
                         psi2D[i, :, :] = time_slice.profiles_2d[0].psi
-                    if time_slice.profiles_2d[0].j_tor.size > 0 and jtor2D is not None:
-                        jtor2D[i, :, :] = time_slice.profiles_2d[0].j_tor
+                    j_tor_2d = get_compat_attr(time_slice.profiles_2d[0], "j_tor", "j_phi")
+                    if j_tor_2d is not None and j_tor_2d.size > 0 and jtor2D is not None:
+                        jtor2D[i, :, :] = j_tor_2d
                     if "r" in selection and time_slice.profiles_2d[0].grid.dim1.size > 0:
                         r = time_slice.profiles_2d[0].grid.dim1
                     if "z" in selection and time_slice.profiles_2d[0].grid.dim2.size > 0:
