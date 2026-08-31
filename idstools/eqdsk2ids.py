@@ -524,11 +524,15 @@ def map__GEQDSK_to_ids(geqdsk, eq):
     psi_2d = np.array(eq.time_slice[0].profiles_2d[0].psi)
     r_1d = np.array(eq.time_slice[0].profiles_2d[0].grid.dim1)
     if psi_1d[0] < psi_1d[-1]:
+
         def f_of_psi(p):
             return np.interp(p, psi_1d, f_1d, right=f_1d[-1])
+
     else:
+
         def f_of_psi(p):
             return np.interp(p, psi_1d[::-1], f_1d[::-1], right=f_1d[-1])
+
     for i in range(nw):
         eq.time_slice[0].profiles_2d[0].b_field_phi[i, :] = f_of_psi(psi_2d[i, :]) / r_1d[i]
 
