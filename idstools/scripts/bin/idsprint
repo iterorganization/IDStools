@@ -354,8 +354,18 @@ def _make_tree(structure, hide_empty_nodes, compact, *, tree=None, depth=None, c
                 group = Columns([f"[bright_yellow]{structure.metadata.name}[/]"])
                 tree.add(group)
             return tree
-        elif isinstance(structure, np.float64):
-            return structure
+        elif isinstance(structure, (np.generic, float, int, str, bool, complex)):
+            tree = Tree(f"[magenta]{type(structure).__name__}")
+            scalar_value = structure.item() if isinstance(structure, np.generic) else structure
+            value = Pretty(scalar_value)
+            txt = f"[bright_yellow]value[/]:"
+
+            group = Columns([txt, value])
+            if compact:
+                txt = f"[bright_yellow]value[/]"
+                group = Columns([txt])
+            tree.add(group)
+            return tree
         else:
             tree = Tree(f"[magenta]{structure.metadata.name}")
 
