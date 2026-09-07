@@ -369,15 +369,7 @@ class WavesCompute:
 
         for iwave in range(len(self.ids.coherent_wave)):
             if len(self.ids.coherent_wave[iwave].identifier.antenna_name) > 0:
-                # Convert to Python string to ensure matplotlib compatibility (prevents array-like interpretation)
-                antenna_name = self.ids.coherent_wave[iwave].identifier.antenna_name
-                # Use str() to convert numpy strings/arrays to Python str
-                if hasattr(antenna_name, "item"):
-                    # If it has .item() method (numpy scalar), use it
-                    single_ec_launcher_name[iwave] = str(antenna_name.item())
-                else:
-                    # Otherwise just convert to str
-                    single_ec_launcher_name[iwave] = str(antenna_name)
+                single_ec_launcher_name[iwave] = self.ids.coherent_wave[iwave].identifier.antenna_name.value
             else:
                 single_ec_launcher_name[iwave] = f"Launcher{iwave + 1}"
             if np.size(self.ids.coherent_wave[iwave].global_quantities) > 0:
