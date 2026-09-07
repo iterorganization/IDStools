@@ -368,7 +368,7 @@ class WavesCompute:
         single_current_waveform = dict()  # waveform
 
         for iwave in range(len(self.ids.coherent_wave)):
-            if len(self.ids.coherent_wave[iwave].identifier.antenna_name) > 0:
+            if self.ids.coherent_wave[iwave].identifier.antenna_name.has_value:
                 single_ec_launcher_name[iwave] = self.ids.coherent_wave[iwave].identifier.antenna_name
             else:
                 single_ec_launcher_name[iwave] = f"Launcher{iwave + 1}"
