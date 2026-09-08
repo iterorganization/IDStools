@@ -53,7 +53,7 @@ dependencies = [
     "numpy",
     "packaging",
     "pandas",
-    "plotext>=5.0",
+    "plotext>=5.0,<6.0",
     "pyparsing",
     "python-dateutil",
     "pyyaml",
