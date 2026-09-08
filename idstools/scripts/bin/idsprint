@@ -346,13 +346,13 @@ def _make_tree(structure, hide_empty_nodes, compact, *, tree=None, depth=None, c
             tree = Tree(f"[magenta]{type(structure)}")
             if not structure.has_value:
                 tree.add(f"[grey62]{structure.metadata.name}[/]")
-            else:
-                value = Pretty(structure.value)
-            txt = f"[bright_yellow]{structure.metadata.name}[/]:"
-            group = Columns([txt, value])
+                return tree
             if compact:
                 group = Columns([f"[bright_yellow]{structure.metadata.name}[/]"])
-                tree.add(group)
+            else:
+                txt = f"[bright_yellow]{structure.metadata.name}[/]:"
+                group = Columns([txt, Pretty(structure.value)])
+            tree.add(group)
             return tree
         elif isinstance(structure, np.float64):
             return structure
