@@ -195,6 +195,7 @@ if __name__ == "__main__":
             pulse = entry[0]
             run = entry[1]
 
+            src_dd_version = None
             _dummy_hdfde = imas.DBEntry(
                 imas.ids_defs.HDF5_BACKEND, args.database, pulse, run, args.user, data_version=args.version
             )
@@ -205,8 +206,8 @@ if __name__ == "__main__":
                     _dummy = _dummy_hdfde.get(idsname, lazy=True, autoconvert=False)
                     src_dd_version = _dummy.ids_properties.version_put.data_dictionary.value
                     break
-                except Exception as e:
-                    pass
+                except Exception:
+                    continue
             _dummy_hdfde.close()
 
             mdsde = imas.DBEntry(
