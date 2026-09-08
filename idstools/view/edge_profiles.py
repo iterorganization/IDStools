@@ -126,6 +126,9 @@ class EdgeProfilesView:
 
         if ne_values is not None:
             polygons, cell_values = self.edge_profiles_compute.get_cell_polygons_and_values(time_slice, ne_values)
+            if polygons is None or len(polygons) == 0:
+                logger.warning("edge_profiles: no cell polygons available, cannot plot electron density")
+                return None
             all_r = np.concatenate([v[:, 0] for v in polygons])
             all_z = np.concatenate([v[:, 1] for v in polygons])
             ax.grid(False)
