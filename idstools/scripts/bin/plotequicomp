@@ -24,7 +24,6 @@ from idstools.utils.clihelper import (
 )
 from idstools.utils.idslogger import setup_logger
 from idstools.utils.utility_functions import add_query_to_uri
-from idstools.view.common import PROVENANCE_TITLE_STYLE, PlotCanvas
 from idstools.view.equilibrium import EquilibriumView
 from idstools.view.wall import WallView
 
