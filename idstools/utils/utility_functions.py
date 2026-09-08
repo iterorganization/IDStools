@@ -16,7 +16,10 @@ def add_query_to_uri(uri: str, *, query: str, backend=None):
     if backend is not None and uri_backend != backend:
         return uri
 
-    updated_query = f"{uri_parts.query};{query}"
+    key = query.split("=", 1)[0]
+    if any(item.split("=", 1)[0] == key for item in uri_parts.query.split(";")):
+        return uri
+    updated_query = f"{uri_parts.query};{query}" if uri_parts.query else query
     return urlunsplit(
         (
             uri_parts.scheme,
