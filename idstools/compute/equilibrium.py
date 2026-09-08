@@ -464,7 +464,7 @@ class EquilibriumCompute:
             )
 
             bnd_type = int(bnd.type)
-            if _valid_scalar(bnd_type):
+            if bnd_type != imas.ids_defs.EMPTY_INT and _valid_scalar(bnd_type):
                 result["bnd_type"] = bnd_type
         except Exception as exc:
             logger.debug(f"get_boundary_data: could not read time_slice[{time_slice}]/boundary: {exc}")
