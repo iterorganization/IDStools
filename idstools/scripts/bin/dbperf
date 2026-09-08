@@ -410,7 +410,9 @@ if __name__ == "__main__":
         evaldf = totaldf.groupby("IDS")
 
         if args.verbose:
-            print(evaldf)
+            for key in evaldf.groups.keys():
+                print(f"IDS: {key}")
+                print(evaldf.get_group(key))
 
         for key in evaldf.groups.keys():
             if args.sizevtime:
