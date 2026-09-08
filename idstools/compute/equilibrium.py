@@ -75,7 +75,7 @@ class EquilibriumCompute:
 
         profiles2d = self.ids.time_slice[time_slice].profiles_2d[profiles2d_index]
 
-        if profiles2d.grid_type.index == 1 and profiles2d.grid.dim1 is not None and profiles2d.grid.dim2 is not None:
+        if profiles2d.grid_type.index == 1 and len(profiles2d.grid.dim1) > 0 and len(profiles2d.grid.dim2) > 0:
             logger.info(
                 f"Using equilibrium.time_slice[{time_slice}]"
                 f".profiles_2d[{profiles2d_index}].grid.dim1/dim2 for the 2D grid"
