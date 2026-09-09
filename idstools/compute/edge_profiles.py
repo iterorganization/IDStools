@@ -1175,7 +1175,8 @@ class EdgeProfilesCompute:
             if len(ne_values) != len(r):
                 logger.warning(
                     f"edge_profiles: per-subset density count {len(ne_values)} != element count {len(r)} "
-                    f"for subset {subset_identifier_index}, falling back to node interpolation"
+                    f"for subset {subset_identifier_index}, no node-density fallback collected for this "
+                    "subset, returning no data"
                 )
                 if len(ne_list) == len(r):
                     return r, z, np.array(ne_list, dtype=float)
