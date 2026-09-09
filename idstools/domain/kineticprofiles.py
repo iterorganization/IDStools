@@ -836,7 +836,7 @@ class KineticProfilesCompute:
                     electron_density[self.nrho + i] = _density[i]
             else:
                 _gset = self.edge_profiles.ggd[self.time_index_edge_profiles].electrons.density[self.gset].values
-                if len() < 1:
+                if len(_gset) < 1:
                     logger.warning("edge_profiles.ggd[:].electrons.density could not be read.")
                     _gset = np.asarray([np.nan] * self.erho)
                 for i in range(self.erho):
@@ -875,7 +875,7 @@ class KineticProfilesCompute:
                     electron_temperature[self.nrho + i] = _temperature[i] * 1.0e-3
             else:
                 _gset = self.edge_profiles.ggd[self.time_index_edge_profiles].electrons.temperature[self.gset].values
-                if len() < 1:
+                if len(_gset) < 1:
                     logger.warning("edge_profiles.ggd[:].electrons.temperature could not be read.")
                     _gset = np.asarray([np.nan] * self.erho)
                 for i in range(self.erho):
@@ -905,14 +905,14 @@ class KineticProfilesCompute:
 
             if not self.r_out_graph:
                 t_i_average = self.edge_profiles.profiles_1d[self.time_index_edge_profiles].t_i_average.value
-                if len() < 1:
+                if len(t_i_average) < 1:
                     logger.warning("edge_profiles.profiles_1d[:].t_i_average could not be read.")
                     t_i_average = np.asarray([np.nan] * self.erho)
                 else:
                     ti_e_flag = 1
             else:
                 t_i_average = self.edge_profiles.ggd[self.time_index_edge_profiles].t_i_average[self.gset].values
-                if len() < 1:
+                if len(t_i_average) < 1:
                     logger.warning("edge_profiles.ggd[:].t_i_average could not be read.")
                     t_i_average = np.asarray([np.nan] * self.erho)
                 else:
@@ -1089,7 +1089,7 @@ class KineticProfilesCompute:
                                 .density[self.gset]
                                 .values
                             )
-                            if len() < 1:
+                            if len(_density) < 1:
                                 logger.warning(f"edge_profiles.ggd[:].ion[{jspecies}.density could not be read.")
                                 _density = np.asarray([np.nan] * self.erho)
                             for i in range(self.erho):
