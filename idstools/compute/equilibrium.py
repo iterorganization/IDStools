@@ -44,6 +44,11 @@ class EquilibriumCompute:
         This function returns a dictionary containing 2D Cartesian grid coordinates and psi values from
         an equilibrium IDS object.
 
+        Only a rectangular cylindrical grid (``grid_type.index == 1``) with populated
+        ``profiles_2d.grid.dim1``/``dim2`` is supported. Entries that instead fill the 2-D
+        ``profiles_2d.r``/``z`` arrays directly (e.g. non-rectangular grids) are not supported and
+        return ``None``.
+
         Args:
             time_slice (int): The time slice index of the equilibrium data to be used for generating the
             2D Cartesian grid. Defaults to 0
@@ -52,8 +57,12 @@ class EquilibriumCompute:
             list of profiles in the `time_slice` object. Defaults to 0
 
         Returns:
-            A dictionary containing the 2D Cartesian grid coordinates (r2d and z2d) and the corresponding psi
-            values (psi2d), or None if the data is unavailable or invalid.
+            A dictionary with the 1-D grid axis vectors ``r2d`` (shape ``(N_R,)``) and ``z2d``
+            (shape ``(N_Z,)``) taken from ``profiles_2d.grid.dim1``/``dim2``, and the 2-D psi values
+            ``psi2d`` (shape ``(N_R, N_Z)``); or ``None`` if the data is unavailable or invalid.
+            Despite the ``2d`` suffix, ``r2d``/``z2d`` are 1-D axis vectors, not full 2-D meshes -
+            suitable for ``ax.contour(r2d, z2d, psi2d.T)``, but not for ``result["r2d"][i, j]``
+            style indexing.
 
         Example:
             .. code-block:: python
@@ -64,7 +73,7 @@ class EquilibriumCompute:
             computeObj = EquilibriumCompute(idsObj)
             result = computeObj.get2d_cartesian_grid(time_slice=0)
 
-            {'r2d': array([...]), 'z2d': array([...]), 'psi2d': array([...])}
+            {'r2d': array([...]), 'z2d': array([...]), 'psi2d': array([[...]])}
         """
         profiles2d = r1d = z1d = None
         try:
