@@ -1,4 +1,0 @@
-Tkinter
-matplotlib
-IMAS-Python
-PyYAML
