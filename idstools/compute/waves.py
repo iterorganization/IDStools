@@ -369,7 +369,7 @@ class WavesCompute:
 
         for iwave in range(len(self.ids.coherent_wave)):
             if self.ids.coherent_wave[iwave].identifier.antenna_name.has_value:
-                single_ec_launcher_name[iwave] = self.ids.coherent_wave[iwave].identifier.antenna_name
+                single_ec_launcher_name[iwave] = self.ids.coherent_wave[iwave].identifier.antenna_name.value
             else:
                 single_ec_launcher_name[iwave] = f"Launcher{iwave + 1}"
             if np.size(self.ids.coherent_wave[iwave].global_quantities) > 0:
