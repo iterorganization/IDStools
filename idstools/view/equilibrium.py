@@ -335,72 +335,82 @@ class EquilibriumView(BasePlot):
         if plot_annotations:
             self.view_global_quantities_annotation(ax, time_slice)
 
-        # --- clickable legend
-        if overlay_entries or _md_handles:
-            overlay_proxies = [proxy for proxy, _ in overlay_entries]
-
-            all_handles = _md_handles + overlay_proxies
-            all_labels = _md_labels + [p.get_label() for p in overlay_proxies]
-
-            legend = ax.legend(
-                handles=all_handles,
-                labels=all_labels,
-                loc="upper left",
-                bbox_to_anchor=(1.15, 1),
-                fancybox=True,
-                frameon=False,
-                framealpha=1.0,
-                facecolor="white",
-                fontsize=10,
-                labelspacing=1.2,
-            )
-            legend.set_zorder(1000)
-            for text in legend.get_texts():
-                text.set_ha("left")
-
-            leg_map = {}
-            legend_texts = legend.get_texts()
-            n_md = len(_md_handles)
-            for i, orig_artist in enumerate(_md_handles):
-                leg_h = legend.legend_handles[i]
-                leg_h.set_picker(8)
-                leg_map[leg_h] = [orig_artist]
-                legend_texts[i].set_picker(True)
-                leg_map[legend_texts[i]] = [orig_artist]
-
-            for i, (_, artists) in enumerate(overlay_entries):
-                leg_h = legend.legend_handles[n_md + i]
-                leg_text = legend_texts[n_md + i]
-                leg_h.set_picker(8)
-                leg_map[leg_h] = artists
-                leg_text.set_picker(True)
-                leg_map[leg_text] = artists
-                if artists and not artists[0].get_visible():
-                    leg_h.set_alpha(0.3)
-                    leg_text.set_alpha(0.3)
-
-            def on_legend_click(event):
-                legline = event.artist
-                if legline not in leg_map:
-                    return
-                artists = leg_map[legline]
-                if not artists:
-                    return
-                visible = not artists[0].get_visible()
-                for a in artists:
-                    a.set_visible(visible)
-                legline.set_alpha(1.0 if visible else 0.3)
-                if legline in legend.legend_handles:
-                    leg_index = legend.legend_handles.index(legline)
-                    legend_texts[leg_index].set_alpha(1.0 if visible else 0.3)
-                elif legline in legend_texts:
-                    leg_index = legend_texts.index(legline)
-                    legend.legend_handles[leg_index].set_alpha(1.0 if visible else 0.3)
-                ax.figure.canvas.draw_idle()
-
-            ax.figure.canvas.mpl_connect("pick_event", on_legend_click)
-
+        self._configure_interactive_legend(ax, _md_handles, _md_labels, overlay_entries)
         return contour_lines_psi, contour_lines_rho
+
+    @staticmethod
+    def _configure_interactive_legend(ax, md_handles, md_labels, overlay_entries):
+        """Build a clickable legend, replacing this axes' previous pick handler."""
+        canvas = ax.figure.canvas
+        previous_cid = getattr(ax, "_idstools_legend_cid", None)
+        if previous_cid is not None:
+            canvas.mpl_disconnect(previous_cid)
+            ax._idstools_legend_cid = None
+        if not overlay_entries and not md_handles:
+            return
+
+        overlay_proxies = [proxy for proxy, _ in overlay_entries]
+
+        all_handles = md_handles + overlay_proxies
+        all_labels = md_labels + [p.get_label() for p in overlay_proxies]
+
+        legend = ax.legend(
+            handles=all_handles,
+            labels=all_labels,
+            loc="upper left",
+            bbox_to_anchor=(1.15, 1),
+            fancybox=True,
+            frameon=False,
+            framealpha=1.0,
+            facecolor="white",
+            fontsize=10,
+            labelspacing=1.2,
+        )
+        legend.set_zorder(1000)
+        for text in legend.get_texts():
+            text.set_ha("left")
+
+        leg_map = {}
+        legend_texts = legend.get_texts()
+        n_md = len(md_handles)
+        for i, orig_artist in enumerate(md_handles):
+            leg_h = legend.legend_handles[i]
+            leg_h.set_picker(8)
+            leg_map[leg_h] = [orig_artist]
+            legend_texts[i].set_picker(True)
+            leg_map[legend_texts[i]] = [orig_artist]
+
+        for i, (_, artists) in enumerate(overlay_entries):
+            leg_h = legend.legend_handles[n_md + i]
+            leg_text = legend_texts[n_md + i]
+            leg_h.set_picker(8)
+            leg_map[leg_h] = artists
+            leg_text.set_picker(True)
+            leg_map[leg_text] = artists
+            if artists and not artists[0].get_visible():
+                leg_h.set_alpha(0.3)
+                leg_text.set_alpha(0.3)
+
+        def on_legend_click(event):
+            legline = event.artist
+            if legline not in leg_map:
+                return
+            artists = leg_map[legline]
+            if not artists:
+                return
+            visible = not artists[0].get_visible()
+            for a in artists:
+                a.set_visible(visible)
+            legline.set_alpha(1.0 if visible else 0.3)
+            if legline in legend.legend_handles:
+                leg_index = legend.legend_handles.index(legline)
+                legend_texts[leg_index].set_alpha(1.0 if visible else 0.3)
+            elif legline in legend_texts:
+                leg_index = legend_texts.index(legline)
+                legend.legend_handles[leg_index].set_alpha(1.0 if visible else 0.3)
+            ax.figure.canvas.draw_idle()
+
+        ax._idstools_legend_cid = canvas.mpl_connect("pick_event", on_legend_click)
 
     def view_pulse_info(self, ax: plt.axes, title: str, hostdir: str, shot: int, run: int, t: float):
         self.database_info(ax, title, hostdir, shot, run, t)
