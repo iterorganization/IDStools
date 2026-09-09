@@ -12,3 +12,4 @@ Following are the different command line tools available in the
    ids_manipulation_tools
    database_tools
    scenariodb_tools
+   jupyter

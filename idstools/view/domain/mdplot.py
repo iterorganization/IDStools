@@ -36,14 +36,26 @@ def update_labels(ax):
     ax.figure.canvas.draw_idle()
 
 
-def plot_machine_description(ax, ids_data):
+def plot_machine_description(ax, ids_data, main_uri=None):
     """
     The `plotMachineDescription` method is responsible for plotting the machine description
     based on the provided pulse list.
 
+    Args:
+        main_uri: If provided, machine description entries with the same URI are omitted
+                  from the provenance text (to avoid duplication when MD and main data share a URI).
     """
 
-    database_path = ""
+    provenance_groups = {}
+
+    def _add_provenance(ids_name_label, connection_args):
+        """Group subsystem labels that originate from the same data-entry URI."""
+        uri = get_database_path(connection_args).strip()
+        if main_uri is not None and uri == main_uri.strip():
+            return
+        labels = provenance_groups.setdefault(uri, [])
+        if ids_name_label not in labels:
+            labels.append(ids_name_label)
 
     mdlegends = []
     mdlabels = []
@@ -70,7 +82,7 @@ def plot_machine_description(ax, ids_data):
                 if _legend:
                     mdlegends.append(_legend)
                     mdlabels.append(f"pf_active:{idsocc}/coil[{select}]")
-                    database_path += "pf_active = " + get_database_path(ids_data_and_config["connectionArgs"]) + "\n"
+                    _add_provenance("pf_active", ids_data_and_config["connectionArgs"])
         elif ids_name == "tf":
             select2 = ":"
             if len(matches) == 2:
@@ -81,7 +93,7 @@ def plot_machine_description(ax, ids_data):
                 if _legend:
                     mdlegends.append(_legend)
                     mdlabels.append(f"tf:{idsocc}/coil[{select}]/conductor[{select2}]")
-                    database_path += "tf = " + get_database_path(ids_data_and_config["connectionArgs"]) + "\n"
+                    _add_provenance("tf", ids_data_and_config["connectionArgs"])
         elif ids_name == "pf_passive":
             pfpassiveview = PFPassiveView(ids_data_and_config["idsData"])
             if "loop" in idsfield or idsfield == "":
@@ -90,7 +102,7 @@ def plot_machine_description(ax, ids_data):
                     mdlegends.append(_legend)
 
                     mdlabels.append(f"pf_passive:{idsocc}/loop[{select}]")
-                    database_path += "pf_passive = " + get_database_path(ids_data_and_config["connectionArgs"]) + "\n"
+                    _add_provenance("pf_passive", ids_data_and_config["connectionArgs"])
         elif ids_name == "wall":
             wallview = WallView(ids_data_and_config["idsData"])
             select2 = ":"
@@ -100,7 +112,7 @@ def plot_machine_description(ax, ids_data):
                 wallview.view_wall_vessel(ax, select_description2d=select, select_unit=select2)
             if "limiter" in idsfield or idsfield == "":
                 wallview.view_wall_limiter(ax, select_description2d=select, select_unit=select2)
-            database_path += "wall = " + get_database_path(ids_data_and_config["connectionArgs"]) + "\n"
+            _add_provenance("wall", ids_data_and_config["connectionArgs"])
         elif ids_name == "magnetics":
             magnetics_view = MagneticsView(ids_data_and_config["idsData"])
             if "b_field_phi_probe" in idsfield or idsfield == "":
@@ -128,11 +140,9 @@ def plot_machine_description(ax, ids_data):
                 if _legend:
                     mdlegends.append(_legend)
                     mdlabels.append(f"magnetics:{idsocc}/shunt[{select}]")
-            database_path += "magnetics = " + get_database_path(ids_data_and_config["connectionArgs"]) + "\n"
+            _add_provenance("magnetics", ids_data_and_config["connectionArgs"])
         else:
-            database_path += (
-                f"{ids_name} = " + get_database_path(ids_data_and_config["connectionArgs"]) + "No visualization yet\n"
-            )
+            _add_provenance(f"{ids_name} (No visualization yet)", ids_data_and_config["connectionArgs"])
             logger.info(f"Visualization is not implemented yet for machine description {ids_name}")
 
     handles, labels = ax.get_legend_handles_labels()
@@ -151,14 +161,4 @@ def plot_machine_description(ax, ids_data):
     # ax.callbacks.connect("ylim_changed", update_labels)
     ax.plot()
 
-    xmin, xmax = ax.get_xlim()
-    ymin, ymax = ax.get_ylim()
-    ax.text(
-        xmax + 0.01 * abs(xmax),
-        ymin + 0.5 * abs(ymax - ymin),
-        f"{database_path}",
-        horizontalalignment="left",
-        verticalalignment="center",
-        rotation="vertical",
-        fontsize=7,
-    )
+    return " | ".join(f"{', '.join(labels)} = {uri}" for uri, labels in provenance_groups.items())

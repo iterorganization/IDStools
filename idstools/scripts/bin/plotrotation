@@ -16,9 +16,9 @@ from idstools.compute.common import get_nearest_time
 from idstools.database import DBMaster
 from idstools.utils.clihelper import (
     dbentry_parser,
+    show_plot,
     get_database_path,
     get_file_name,
-    get_title,
     rcparam_parser,
 )
 from idstools.utils.idslogger import setup_logger
@@ -36,7 +36,10 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--time", help="Time", required=False, type=float, default=99.0)
     parser.add_argument(
         "--save",
-        help="Save figure at default location",
+        help=(
+            "Save the plot to a file instead of opening a window. "
+            "If no plot window is available, it is saved automatically."
+        ),
         action="store_true",
     )
     parser.add_argument(
@@ -87,18 +90,8 @@ if __name__ == "__main__":
     ax1.sharex(ax3)
     ax2.sharex(ax4)
 
-    canvas.set_text(text=f"{get_database_path(args, time_value=time_value)}")
-
     canvas.fig.subplots_adjust(top=0.916, bottom=0.09, left=0.044, right=0.953, hspace=0.174, wspace=0.117)
     canvas.get_current_fig_manager().set_window_title(os.path.basename(__file__))
-    canvas.fig.suptitle(get_title(args, "Kinetic profiles", time_value))
+    canvas.set_sup_title(get_database_path(args, time_value=time_value))
 
-    if args.save:
-        fname = get_file_name(args, os.path.basename(__file__) + "_Kinetic_profiles", time_value)
-        if args.directory:
-            if not os.path.exists(args.directory):
-                os.makedirs(args.directory)
-            fname = os.path.join(args.directory, fname)
-        canvas.save(fname)
-    else:
-        canvas.show()
+    show_plot(canvas, args, os.path.basename(__file__) + "_Kinetic_profiles", time_value)

@@ -9,7 +9,7 @@ import os
 from rich_argparse import RichHelpFormatter
 
 from idstools.machinedescription import get_md_data
-from idstools.utils.clihelper import rcparam_parser
+from idstools.utils.clihelper import show_plot, rcparam_parser
 from idstools.utils.idslogger import setup_logger
 from idstools.view.common import PlotCanvas
 from idstools.view.domain.mdplot import plot_machine_description
@@ -52,7 +52,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--save",
-        help="Save figure at default location",
+        help=(
+            "Save the plot to a file instead of opening a window. "
+            "If no plot window is available, it is saved automatically."
+        ),
         action="store_true",
     )
     parser.add_argument(
@@ -68,16 +71,9 @@ if __name__ == "__main__":
     mdcanvas = PlotCanvas(1, 1, figsize=(10, 10))
     mdcanvas.update_style(args.rc)
     ax = mdcanvas.add_axes(title="", xlabel="R (m)", ylabel="Z (m)", row=0, col=0)
-    plot_machine_description(ax, ids_data)
+    md_provenance = plot_machine_description(ax, ids_data)
+    ax.set_title("")
     mdcanvas.fig.subplots_adjust(top=0.916, bottom=0.09, left=0.044, right=0.953, hspace=0.287, wspace=0.2)
     mdcanvas.get_current_fig_manager().set_window_title(os.path.basename(__file__))
-    mdcanvas.fig.suptitle("Machine Description")
-    if args.save:
-        fname = os.path.basename(__file__) + "_machine_description.png"
-        if args.directory:
-            if not os.path.exists(args.directory):
-                os.makedirs(args.directory)
-            fname = os.path.join(args.directory, fname)
-        mdcanvas.save(fname)
-    else:
-        mdcanvas.show()
+    mdcanvas.set_sup_title("" if args.no_provenance else md_provenance, fontsize=8)
+    show_plot(mdcanvas, args, fname=os.path.basename(__file__) + "_machine_description.png")

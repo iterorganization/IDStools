@@ -60,10 +60,19 @@ plotequilibrium --uri "imas:mdsplus?user=public;pulse=134174;run=117;database=IT
 
 ## Requirements
 
-- Python ≥ 3.8
-- IMAS Python Access Layer (`imas-python`)
+- Python ≥ 3.10
+
+### Installed automatically via pip
 - NumPy, Matplotlib, Pandas
 - Rich (for enhanced terminal output)
+
+### Requires separate installation
+- **Tkinter** — usually bundled with Python but may require system packages:
+  - Linux (Debian/Ubuntu): `sudo apt install python3-tk`
+  - Linux (RHEL/CentOS/Rocky): `sudo dnf install python3-tkinter`
+  - Windows: included in the [python.org](https://www.python.org/downloads/) installer ("tcl/tk and IDLE" component, enabled by default)
+  - macOS (python.org installer): included by default
+  - macOS (Homebrew): `brew install python-tk` (or `brew install python-tk@3.x` for a specific version)
 
 ## Documentation
 

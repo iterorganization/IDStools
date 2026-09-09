@@ -1,6 +1,34 @@
 import logging
+from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger(f"module.{__name__}")
+
+
+def add_query_to_uri(uri: str, *, query: str, backend=None):
+    """Add a default query parameter to the URI, preserving an existing key.
+
+    If a backend is given, add the query only when it matches the URI's
+    backend. Otherwise, return the original URI unchanged. When backend is
+    None, add the query to any URI. Query parameters use semicolon separators.
+    """
+    uri_parts = urlsplit(uri)
+    uri_backend = uri_parts.path.rsplit("/", 1)[-1]
+    if backend is not None and uri_backend != backend:
+        return uri
+
+    key = query.split("=", 1)[0]
+    if any(item.split("=", 1)[0] == key for item in uri_parts.query.split(";")):
+        return uri
+    updated_query = f"{uri_parts.query};{query}" if uri_parts.query else query
+    return urlunsplit(
+        (
+            uri_parts.scheme,
+            uri_parts.netloc,
+            uri_parts.path,
+            updated_query,
+            uri_parts.fragment,
+        )
+    )
 
 
 def get_slice_from_array(arr, slice_str):

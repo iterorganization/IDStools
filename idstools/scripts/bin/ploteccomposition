@@ -14,9 +14,9 @@ from idstools.compute.common import get_nearest_time
 from idstools.database import DBMaster
 from idstools.utils.clihelper import (
     dbentry_parser,
+    show_plot,
     get_database_path,
     get_file_name,
-    get_title,
     rcparam_parser,
 )
 from idstools.utils.idslogger import setup_logger
@@ -52,7 +52,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--save",
-        help="Save figure at default location",
+        help=(
+            "Save the plot to a file instead of opening a window. "
+            "If no plot window is available, it is saved automatically."
+        ),
         action="store_true",
     )
     parser.add_argument(
@@ -113,20 +116,11 @@ if __name__ == "__main__":
         waves_view.plot_ecrh_waveform(ax3, time_slice)
         waves_view.plot_e_c_c_d_waveform(ax4, time_slice)
 
-    canvas.set_text(text=f"{get_database_path(args, time_value)}")
-    canvas.fig.suptitle(get_title(args, "EC Composition", time_value))
+    canvas.set_sup_title(get_database_path(args, time_value=time_value))
     canvas.fig.subplots_adjust(top=0.941, bottom=0.122, left=0.052, right=0.925, hspace=0.2, wspace=0.2)
     canvas.get_current_fig_manager().set_window_title(os.path.basename(__file__))
 
-    if args.save:
-        fname = get_file_name(args, os.path.basename(__file__) + "_EC_Composition", time_value)
-        if args.directory:
-            if not os.path.exists(args.directory):
-                os.makedirs(args.directory)
-            fname = os.path.join(args.directory, fname)
-        canvas.save(fname)
-    else:
-        canvas.show()
+    show_plot(canvas, args, os.path.basename(__file__) + "_EC_Composition", time_value)
     conn.close()
     # def StrToList(string):
     #     if string[0] == "[":

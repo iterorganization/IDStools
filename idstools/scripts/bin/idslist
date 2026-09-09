@@ -184,8 +184,8 @@ if __name__ == "__main__":
                 type = time_array
             elif time_array is None:
                 value = f"{not_applicable}"
-                type = "unknown"
-            table.add_row(ids_name, value, Pretty(type))
+                type = not_applicable
+            table.add_row(ids_name, value, type if isinstance(type, str) else Pretty(type))
         if args.fullarray is True:
             with np.printoptions(threshold=sys.maxsize, linewidth=1024, precision=4):
                 console.print(table)

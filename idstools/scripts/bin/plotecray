@@ -19,6 +19,7 @@ from idstools.compute.waves import WavesCompute
 from idstools.database import DBMaster
 from idstools.utils.clihelper import (
     dbentry_parser,
+    show_plot,
     get_database_path,
     get_file_name,
     get_title,
@@ -67,7 +68,10 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--save",
-        help="Save figure at default location",
+        help=(
+            "Save the plot to a file instead of opening a window. "
+            "If no plot window is available, it is saved automatically."
+        ),
         action="store_true",
     )
     parser.add_argument(
@@ -141,9 +145,8 @@ if __name__ == "__main__":
         exit(1)
 
     # Search for adequate time slice for display
-    time_array = ids_waves.time
-    ntime = len(ids_waves.time)
-    time_slice, time_value = get_nearest_time(time_array, args.time)
+    time_index_waves, time_value = get_nearest_time(ids_waves.time, args.time)
+    time_index_equilibrium, _ = get_nearest_time(ids_equilibrium.time, time_value)
 
     if len(ids_waves.code.name) > 0:
         logger.info(f"Code name = {ids_waves.code.name.upper()}")
@@ -159,13 +162,18 @@ if __name__ == "__main__":
     wave_view = WavesView(ids_waves)
     wave_compute = WavesCompute(ids_waves)
 
-    beam_tracing_dict = wave_compute.get_beam_tracing(time_slice)
+    beam_tracing_dict = wave_compute.get_beam_tracing(time_index_waves)
     logger.info(
         f"There are {beam_tracing_dict['active_beams_count']} active beam(s)"
         f"and each beam has {beam_tracing_dict['max_total_beams']} ray(s)"
     )
 
-    ecstra_view.plot_poloidal_view(ax_polview, coherent_wave_index=0, time_slice=time_slice)
+    ecstra_view.plot_poloidal_view(
+        ax_polview,
+        coherent_wave_index=0,
+        time_slice=time_index_waves,
+        equilibrium_time_slice=time_index_equilibrium,
+    )
     if args.md is True:
         args.md = ["wall", "pf_active"]
 
@@ -242,32 +250,22 @@ if __name__ == "__main__":
 
     wave_view.plot_pol_view_traces(
         ax_polview,
-        time_slice,
+        time_index_waves,
         color=color,
         style=style,
     )
 
-    equi_view.plot_topplotequilibrium(ax_topview, time_slice)
-    wave_view.plot_top_view_traces(ax_topview, time_slice, color=color, style=style, label=label_code)
+    equi_view.plot_topplotequilibrium(ax_topview, time_index_equilibrium)
+    wave_view.plot_top_view_traces(ax_topview, time_index_waves, color=color, style=style, label=label_code)
 
-    wave_view.plot_electron_power(ax_powview, time_slice, color=color, style=style)
-    wave_view.plot_power_flow_normal(ax_powparview, time_slice, color=color, style=style)
-
-    canvas.set_text(text=f"{get_database_path(args, time_value=time_value)}")
+    wave_view.plot_electron_power(ax_powview, time_index_waves, color=color, style=style)
+    wave_view.plot_power_flow_normal(ax_powparview, time_index_waves, color=color, style=style)
 
     canvas.fig.subplots_adjust(top=0.95, bottom=0.097, left=0, right=0.948, hspace=0.2, wspace=0.108)
     canvas.get_current_fig_manager().set_window_title(os.path.basename(__file__))
-    canvas.fig.suptitle(get_title(args, "EC rays", time_value))
+    canvas.set_sup_title(get_database_path(args, time_value=time_value))
 
-    if args.save:
-        fname = get_file_name(args, os.path.basename(__file__) + "_EC_rays", time_value)
-        if args.directory:
-            if not os.path.exists(args.directory):
-                os.makedirs(args.directory)
-            fname = os.path.join(args.directory, fname)
-        canvas.save(fname)
-    else:
-        canvas.show()
+    show_plot(canvas, args, os.path.basename(__file__) + "_EC_rays", time_value)
 
     # def StrToList(string):
     #     if string[0] == "[":

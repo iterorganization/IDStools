@@ -3,16 +3,18 @@
 import argparse
 import logging
 import os
+import re
+import shutil
 import sys
 
 try:
     import imaspy as imas
 except ImportError:
     import imas
-from itertools import tee
 
 import numpy as np
 import rich
+from rich.panel import Panel
 from rich.columns import Columns
 from rich.console import Console
 from rich.pretty import Pretty
@@ -23,6 +25,7 @@ from rich_argparse import RichHelpFormatter
 from idstools.database import DBMaster
 from idstools.utils.clihelper import (
     dbentry_parser,
+    show_plot,
     get_database_path,
     get_file_name,
     get_title,
@@ -30,9 +33,160 @@ from idstools.utils.clihelper import (
 )
 from idstools.utils.idshelper import get_available_ids_and_times, parse_uri, partial_get
 from idstools.utils.idslogger import setup_logger
-from idstools.view.common import PlotCanvas
 
 logger = setup_logger("module", stdout_level=logging.INFO)
+
+TERMINAL_PLOT_WIDTH = 120
+TERMINAL_PLOT_HEIGHT = 30
+TERMINAL_PLOT_TICKS = 5
+TERMINAL_PLOT_SCIENTIFIC_THRESHOLD = 1e4
+
+
+def _node_value(node):
+    if isinstance(node, imas.ids_primitive.IDSPrimitive):
+        if not node.has_value:
+            return None
+        return node.value
+    return node
+
+
+def _coordinate_1d_array(coordinate, size):
+    coordinate = _node_value(coordinate)
+    if coordinate is None or isinstance(coordinate, int):
+        return np.arange(size, dtype=float)
+    try:
+        coordinate = np.asarray(coordinate)
+    except Exception:
+        return np.arange(size, dtype=float)
+    if coordinate.ndim != 1 or coordinate.size != size or not np.issubdtype(coordinate.dtype, np.number):
+        return np.arange(size, dtype=float)
+    return coordinate.astype(float, copy=False)
+
+
+def _scientific_ticks(values, count=TERMINAL_PLOT_TICKS):
+    values = np.asarray(values, dtype=float)
+    values = values[np.isfinite(values)]
+    if values.size == 0:
+        return [], []
+    lower = float(values.min())
+    upper = float(values.max())
+    if lower == upper:
+        ticks = [lower]
+    else:
+        ticks = np.linspace(lower, upper, min(count, values.size)).tolist()
+    use_scientific = np.max(np.abs(values)) >= TERMINAL_PLOT_SCIENTIFIC_THRESHOLD
+    labels = [f"{tick:.2e}" if use_scientific else f"{tick:.4g}" for tick in ticks]
+    return ticks, labels
+
+
+def _series_labels(field_name, count):
+    """Expand the first path slice into one label per plotted series."""
+    match = re.search(r"[\[(]([^\])]*:[^\])]*?)[\])]", field_name)
+    if match:
+        parts = match.group(1).split(":")
+        if len(parts) <= 3:
+            try:
+                start = int(parts[0]) if parts[0] else None
+                step = int(parts[2]) if len(parts) == 3 and parts[2] else 1
+            except ValueError:
+                start = None
+                step = None
+            if step:
+                if start is None:
+                    start = count - 1 if step < 0 else 0
+                labels = []
+                for series_index in range(count):
+                    selected_index = start + series_index * step
+                    labels.append(f"{field_name[: match.start()]}[{selected_index}]{field_name[match.end() :]}")
+                return labels
+    return [f"{field_name} [{series_index}]" for series_index in range(count)]
+
+
+def print_terminal_plot(
+    field,
+    coordinate,
+    field_name="",
+    coordinate_name="Index",
+    field_unit="",
+    coordinate_unit="",
+):
+    raw = _node_value(field)
+    try:
+        data = np.asarray(raw).astype(float)
+    except (ValueError, TypeError):
+        data = None
+
+    if data is None or data.size == 0 or data.ndim != 1:
+        logger.warning("Terminal plot supports only 1D numeric arrays")
+        return False
+
+    # Extract units and coordinate from IDS metadata if not provided
+    if isinstance(field, imas.ids_primitive.IDSPrimitive):
+        if not field_unit:
+            field_unit = str(field.metadata.units or "")
+    if coordinate is None and isinstance(field, imas.ids_primitive.IDSNumericArray):
+        for candidate in field.coordinates:
+            if isinstance(candidate, imas.ids_primitive.IDSPrimitive) and candidate.has_value:
+                coordinate = candidate
+                coordinate_name = candidate.metadata.name or candidate.metadata.path or coordinate_name
+                if not coordinate_unit:
+                    coordinate_unit = str(candidate.metadata.units or "")
+                break
+    if isinstance(coordinate, imas.ids_primitive.IDSPrimitive) and not coordinate_unit:
+        coordinate_unit = str(coordinate.metadata.units or "")
+
+    import plotext as ptx
+    from rich.align import Align
+    from rich.text import Text
+
+    console = Console()
+
+    y_label = f"{field_name} [{field_unit}]" if field_unit else field_name
+    x_label = f"{coordinate_name} [{coordinate_unit}]" if coordinate_unit else (coordinate_name or "Index")
+
+    xdata = _coordinate_1d_array(coordinate, data.size)
+    finite = np.isfinite(data) & np.isfinite(xdata)
+    if not np.any(finite):
+        logger.warning("Terminal plot supports only arrays with finite numeric values")
+        return False
+    data, xdata = data[finite], xdata[finite]
+
+    ptx.clear_figure()
+    ptx.canvas_color("default")
+    ptx.axes_color("default")
+    ptx.ticks_color("default")
+    terminal_width, terminal_height = ptx.terminal_size()
+    plot_width = min(TERMINAL_PLOT_WIDTH, max(40, terminal_width - 4))
+    plot_height = min(TERMINAL_PLOT_HEIGHT, max(12, terminal_height - 8))
+    ptx.plot_size(plot_width, plot_height)
+    xticks, xlabels = _scientific_ticks(xdata)
+    yticks, ylabels = _scientific_ticks(data)
+    ptx.xticks(xticks, xlabels)
+    ptx.yticks(yticks, ylabels)
+    ptx.plot(xdata.tolist(), data.tolist(), color="cyan", marker="braille")
+
+    stats = Text(justify="center")
+    stats.append("min: ", style="bright_black")
+    stats.append(f"{data.min():.2e}", style="bold cyan")
+    stats.append("   max: ", style="bright_black")
+    stats.append(f"{data.max():.2e}", style="bold cyan")
+    stats.append("   mean: ", style="bright_black")
+    stats.append(f"{data.mean():.2e}", style="bold cyan")
+    console.print(
+        Align.center(Panel(Align.center(stats), border_style="bright_blue", padding=(0, 1), width=plot_width))
+    )
+
+    plot = Text.from_ansi(ptx.build())
+    console.print(Align.center(plot))
+
+    axis_labels = Table.grid(padding=(0, 1))
+    axis_labels.add_column(justify="right", style="bright_black", no_wrap=True)
+    axis_labels.add_column(style="cyan")
+    axis_labels.add_row("x:", x_label)
+    if y_label:
+        axis_labels.add_row("y:", y_label)
+    console.print(Align.center(Panel(axis_labels, border_style="bright_black", padding=(0, 1), width=plot_width)))
+    return True
 
 
 def view_plot(
@@ -98,11 +252,13 @@ def view_plot(
         ax.plot(coordinate, data, label=field_name, marker="o", color="red")
 
     elif len(data.shape) == 2:
+        series_labels = _series_labels(field_name, data.shape[1])
+        legend_indices = set(range(data.shape[1]))
+        if data.shape[1] > 20:
+            legend_indices = set(range(5)) | set(range(data.shape[1] - 5, data.shape[1]))
         for j in range(data.shape[1]):
-            if j == 0:
-                ax.plot(coordinate, data[:, j], label=f"{field_name}")
-            else:
-                ax.plot(coordinate, data[:, j])
+            label = series_labels[j] if j in legend_indices else "_nolegend_"
+            ax.plot(coordinate, data[:, j], label=label)
     else:
         ax.plot(coordinate, data, label=field_name)
 
@@ -117,12 +273,25 @@ def view_plot(
 
 
 def print_tree(structure, hide_empty_nodes, compact, full_array, depth=None):
+    console = Console()
     if full_array:
         with np.printoptions(threshold=sys.maxsize, linewidth=1024, precision=4):
-            rich.print(_make_tree(structure, hide_empty_nodes, compact, depth=depth))
+            console.print(
+                Panel(
+                    _make_tree(structure, hide_empty_nodes, compact, depth=depth),
+                    border_style="bright_blue",
+                    padding=(0, 1),
+                )
+            )
     else:
         with np.printoptions(threshold=5, linewidth=1024, precision=4):
-            rich.print(_make_tree(structure, hide_empty_nodes, compact, depth=depth))
+            console.print(
+                Panel(
+                    _make_tree(structure, hide_empty_nodes, compact, depth=depth),
+                    border_style="bright_blue",
+                    padding=(0, 1),
+                )
+            )
 
 
 def _make_tree(structure, hide_empty_nodes, compact, *, tree=None, depth=None, current_depth=0):
@@ -173,8 +342,30 @@ def _make_tree(structure, hide_empty_nodes, compact, *, tree=None, depth=None, c
                 group = Columns([txt])
             tree.add(group)
             return tree
-        elif isinstance(structure, np.float64) or isinstance(structure, imas.ids_primitive.IDSPrimitive):
-            return structure
+        elif isinstance(structure, imas.ids_primitive.IDSPrimitive):
+            tree = Tree(f"[magenta]{type(structure)}")
+            if not structure.has_value:
+                tree.add(f"[grey62]{structure.metadata.name}[/]")
+                return tree
+            if compact:
+                group = Columns([f"[bright_yellow]{structure.metadata.name}[/]"])
+            else:
+                txt = f"[bright_yellow]{structure.metadata.name}[/]:"
+                group = Columns([txt, Pretty(structure.value)])
+            tree.add(group)
+            return tree
+        elif isinstance(structure, (np.generic, float, int, str, bool, complex)):
+            tree = Tree(f"[magenta]{type(structure).__name__}")
+            scalar_value = structure.item() if isinstance(structure, np.generic) else structure
+            value = Pretty(scalar_value)
+            txt = f"[bright_yellow]value[/]:"
+
+            group = Columns([txt, value])
+            if compact:
+                txt = f"[bright_yellow]value[/]"
+                group = Columns([txt])
+            tree.add(group)
+            return tree
         else:
             tree = Tree(f"[magenta]{structure.metadata.name}")
 
@@ -212,9 +403,9 @@ def _make_tree(structure, hide_empty_nodes, compact, *, tree=None, depth=None, c
             if isinstance(child, imas.ids_structure.IDSStructure):
                 txt = f"[magenta]{child._path}[/]"
                 # check if structure is not empty
-                iterator, iterator_copy = tee(child.iter_nonempty_(accept_lazy=True))
+                _iter = child.iter_nonempty_(accept_lazy=True)
                 try:
-                    next(iterator_copy)
+                    next(_iter)
                 except StopIteration:
                     pass
                 else:
@@ -269,7 +460,7 @@ def _make_dict_tree(structure, hide_empty_nodes, compact, *, tree=None):
                 for counter, ids_structure in enumerate(child):
                     ntree = {}
                     nlist.append(ntree)
-                    nlist.append(_make_dict_tree(ids_structure, hide_empty_nodes, compact, tree=ntree))
+                    _make_dict_tree(ids_structure, hide_empty_nodes, compact, tree=ntree)
     return tree
 
 
@@ -332,7 +523,7 @@ if __name__ == "__main__":
         "-p",
         "--plot",
         action="store_true",
-        help="plot 1d arrays from leaf nodes",
+        help="Plot arrays from leaf nodes with Matplotlib",
     )
     parser.add_argument(
         "--coordinate",
@@ -341,7 +532,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--save",
-        help="Save figure at default location",
+        help=(
+            "Save the plot to a file instead of opening a window. "
+            "If no plot window is available, it is saved automatically."
+        ),
         action="store_true",
     )
     parser.add_argument(
@@ -350,6 +544,9 @@ if __name__ == "__main__":
         default=None,
     )
     args = parser.parse_args()
+    if args.plot:
+        from idstools.view.common import PlotCanvas
+
     time_slice = 0.0
     if args.time:
         time_slice = float(args.time)
@@ -375,7 +572,10 @@ if __name__ == "__main__":
         table.add_column("SLICES", style="green")
         table.add_column("TIME", style="green")
         for ids_name, time_array in available_ids_and_times:
-            if len(time_array) == 1 and np.isnan(time_array[0]):
+            if time_array is None:
+                value = "N/A"
+                type = "unknown"
+            elif len(time_array) == 1 and np.isnan(time_array[0]):
                 value = f"{question_string}"
                 type = "heterogeneous IDS"
             elif len(time_array) == 1 and time_array[0] == -np.inf:
@@ -583,18 +783,25 @@ if __name__ == "__main__":
             canvas.get_current_fig_manager().set_window_title(os.path.basename(__file__))
             canvas.fig.suptitle(get_title(args, f"{ids_name}/{original_ids_path}", None))
 
-            if args.save:
-                fname = get_file_name(args, os.path.basename(__file__), None)
-                if args.directory:
-                    if not os.path.exists(args.directory):
-                        os.makedirs(args.directory)
-                    fname = os.path.join(args.directory, fname)
-                canvas.save(fname)
-            else:
-                canvas.show()
+            show_plot(canvas, args, os.path.basename(__file__), None)
 
         else:
             print_tree(
                 node, hide_empty_nodes=not args.show_empty, compact=args.compact, full_array=args.full, depth=args.depth
             )
+            arr = _node_value(node)
+            try:
+                arr = np.asarray(arr)
+            except Exception:
+                arr = None
+            if arr is not None and arr.ndim == 1 and arr.size > 0 and np.issubdtype(arr.dtype, np.number):
+                print_terminal_plot(
+                    node,
+                    coordinate,
+                    field_name=f"{ids_name}/{original_ids_path}",
+                    coordinate_name=coordinate_name or "Index",
+                    field_unit=node_unit,
+                    coordinate_unit=coordinate_unit,
+                )
+
     connection.close()

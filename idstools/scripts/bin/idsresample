@@ -117,7 +117,7 @@ if __name__ == "__main__":
             except Exception as e:
                 logger.error(f"Exception occurred detailed description : {e}")
 
-    tmp = imas.DBEntry("imas:memory?path=tmp/1/1", "w")
+    tmp = imas.DBEntry("imas:memory?path=tmp/1/1", "w", dd_version=src_dd_version)
 
     if tmp is None:
         print("Error creating temporary data-entry in memory!", file=sys.stderr)

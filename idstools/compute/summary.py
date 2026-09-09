@@ -90,7 +90,7 @@ class SummaryCompute:
         # The `energy_mhd` variable in the `get_summary` method is used to retrieve the "energy_mhd"
         # waveform values from the `global_quantities` of the summary ids object. If the length of the
         # retrieved values is less than 1, it logs a critical error message indicating that the data
-        # could not be read and assigns an array of NaN values with the same length as the time vector
+        # could not be read and assigns an array of nan values with the same length as the time vector
         # to the `energy_mhd` variable. This ensures that the `energy_mhd` waveform data is handled
         # properly even in the case of missing or unreadable data.
         energy_mhd = self.ids.global_quantities.energy_mhd.value

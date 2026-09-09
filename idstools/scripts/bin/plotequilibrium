@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# python scripts/plotequilibrium -p 134174 -r 117
+# python scripts/plotequilibrium --uri <URI> --profiles
 # -md "imas:mdsplus?user=public;shot=116000;run=2;database=ITER_MD;version=3#wall"
 # "imas:mdsplus?user=public;shot=111001;run=102;database=ITER_MD;version=3#pf_active"
 
 import argparse
-import copy
 import logging
 import os
 
@@ -13,6 +12,9 @@ try:
     import imaspy as imas
 except ImportError:
     import imas
+# PlotCanvas configures a --rc backend before mpl_toolkits imports Matplotlib.
+from idstools.view.common import PlotCanvas
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from rich_argparse import RichHelpFormatter
 
 from idstools.compute.common import get_nearest_time
@@ -21,13 +23,12 @@ from idstools.database import DBMaster
 from idstools.machinedescription import get_md_data
 from idstools.utils.clihelper import (
     dbentry_parser,
+    show_plot,
     get_database_path,
     get_file_name,
-    get_title,
     rcparam_parser,
 )
 from idstools.utils.idslogger import setup_logger
-from idstools.view.common import PlotCanvas
 from idstools.view.domain.mdplot import plot_machine_description
 from idstools.view.equilibrium import EquilibriumView
 
@@ -49,14 +50,19 @@ if __name__ == "__main__":
     )
     parser.add_argument("-t", "--time", help="Time (default=middle)", type=float, default=-99.0)
     parser.add_argument(
-        "--rho",
-        help="Show rho overlay on the plot",
+        "--phi",
+        help=("Overlay contours of toroidal magnetic flux Φ(R,Z) [Wb] " "from equilibrium profiles_2d/phi"),
         action="store_true",
     )
     parser.add_argument(
-        "-p",
-        "--plots",
-        help="Plots available quantities along with equilibrium",
+        "--no-overlay",
+        dest="no_overlay",
+        help="Hide equilibrium overlays",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--profiles",
+        help="Plot available 1D profiles and time traces alongside the equilibrium",
         action="store_true",
     )
     parser.add_argument(
@@ -75,13 +81,16 @@ if __name__ == "__main__":
     """,
     )
     parser.add_argument(
-        "--show-labels",
-        help="Show labels",
+        "--debug",
+        help="Show diagnostic logging",
         action="store_true",
     )
     parser.add_argument(
         "--save",
-        help="Save figure at default location",
+        help=(
+            "Save the plot to a file instead of opening a window. "
+            "If no plot window is available, it is saved automatically."
+        ),
         action="store_true",
     )
     parser.add_argument(
@@ -104,7 +113,7 @@ if __name__ == "__main__":
             splitted_ids_path_fragment = ids_path_fragment.split("/", 1)
             occurrence = int(splitted_ids_path_fragment[0])
 
-    logger = setup_logger("module", stdout_level=logging.INFO)
+    logger = setup_logger("module", stdout_level=logging.DEBUG if args.debug else logging.INFO)
 
     connection = DBMaster.get_connection(args)
     if connection is None:
@@ -125,9 +134,7 @@ if __name__ == "__main__":
         time_slice, time_value = get_nearest_time(ids_obj_equilibrium.time, args.time)
         view_object = EquilibriumView(ids_obj_equilibrium)
 
-        title = f"2D Equilibrium at time {time_value:.3f}"
-        database_text = ""
-        if args.plots:
+        if args.profiles:
             compute_obj = EquilibriumCompute(ids_obj_equilibrium)
             profiles_1d_quantities = compute_obj.get_profiles_1d_quantities(time_slice, ["pressure", "q", "beta_pol"])
             p1dcounter = sum(1 for value in profiles_1d_quantities.values() if value.has_value)
@@ -136,7 +143,6 @@ if __name__ == "__main__":
                 time_slice, ["q_min.value", "q_95", "li_3", "beta_tor", "energy_mhd"]
             )
             gcounter = sum(1 for value in global_quantities.values() if value["has_value"])
-
             total_plots = p1dcounter + gcounter
 
             if total_plots % 2 == 1:
@@ -145,6 +151,7 @@ if __name__ == "__main__":
                 col_size = int(total_plots / 2)
 
             col_size = col_size + 1
+
             canvas = PlotCanvas(2, col_size)
             ax1 = canvas.add_axes(title="", xlabel="", row=0, col=0, rowspan=2)
             axes_list1 = []
@@ -163,7 +170,11 @@ if __name__ == "__main__":
             ax1 = canvas.add_axes(title="", xlabel="", row=0, col=0)
 
         canvas.update_style(args.rc)
-        if args.md:
+        md_overlay_state = {"created": False, "provenance_lines": []}
+
+        def plot_md_overlay():
+            if not args.md or md_overlay_state["created"]:
+                return md_overlay_state["provenance_lines"]
             idses = ""
             mduris = []
             for mduri in args.md:
@@ -188,44 +199,104 @@ if __name__ == "__main__":
                 ids_data = get_md_data(mduris, args.dd_update, idses=idses)
             else:
                 ids_data = get_md_data(mduris, args.dd_update)
-            plot_machine_description(ax1, ids_data)
+            md_provenance = plot_machine_description(ax1, ids_data, main_uri=get_database_path(args).strip())
+            if md_provenance:
+                md_overlay_state["provenance_lines"] = md_provenance.splitlines()
+            ax1.set_title("")
+            md_overlay_state["created"] = True
+            return True
 
-        c_psi, c_rho = view_object.view_magnetic_poloidal_flux(ax1, time_slice, plot_rho=args.rho)
-        if c_psi:
-            cbar_psi = canvas.fig.colorbar(c_psi, ax=ax1, orientation="horizontal", pad=0.08, fraction=0.03)
-            cbar_psi.set_label(r"$\psi$ [Wb]")
-        if c_rho:
-            cbar_rho = canvas.fig.colorbar(c_rho, ax=ax1, orientation="horizontal", pad=0.08, fraction=0.03)
-            cbar_rho.set_label(r"$\rho$ [Wb]")
-        ax1.set_title(title)
-
-        xmin, xmax = ax1.get_xlim()
-        ymin, ymax = ax1.get_ylim()
-        ax1.text(
-            xmax + 0.01 * abs(xmax),
-            ymin + 0.5 * abs(ymax - ymin),
-            f"{get_database_path(args, time_value=time_value)}\n{database_text}",
-            horizontalalignment="left",
-            verticalalignment="center",
-            rotation="vertical",
-            fontsize=7,
+        c_psi, c_rho = view_object.view_magnetic_poloidal_flux(
+            ax1,
+            time_slice,
+            plot_magnetic_axis=False,
+            plot_current_centre=False,
+            plot_boundary_data=False,
+            plot_phi=args.phi,
+            plot_annotations=False,
         )
-        if args.plots:
+        legend = ax1.get_legend()
+        if legend is not None:
+            legend.set_visible(False)
+
+        if c_psi:
+            cax_psi = inset_axes(
+                ax1,
+                width=0.24,
+                height="88%",
+                loc="lower left",
+                bbox_to_anchor=(-0.24, 0.05, 1, 1),
+                bbox_transform=ax1.transAxes,
+                borderpad=0,
+            )
+            cbar_psi = canvas.fig.colorbar(c_psi, cax=cax_psi)
+            cbar_psi.set_label(r"$\psi$ [Wb]", fontsize=7, rotation=90, labelpad=4)
+            cbar_psi.ax.yaxis.set_label_position("left")
+            cbar_psi.ax.tick_params(labelsize=7)
+
+        if c_rho:
+            cax_rho = inset_axes(
+                ax1,
+                width=0.24,
+                height="88%",
+                loc="lower left",
+                bbox_to_anchor=(-0.58, 0.05, 1, 1),
+                bbox_transform=ax1.transAxes,
+                borderpad=0,
+            )
+            cbar_rho = canvas.fig.colorbar(c_rho, cax=cax_rho)
+            cbar_rho.set_label(r"$\Phi$ [Wb]", fontsize=7, rotation=90, labelpad=4)
+            cbar_rho.ax.yaxis.set_label_position("left")
+            cbar_rho.ax.tick_params(labelsize=7)
+
+        plot_md_overlay()
+
+        if args.profiles:
             view_object.plot_profiles_1d_quantities(axes_list1, time_slice)
             view_object.plot_global_quantities(axes_list2, time_value)
 
-        canvas.fig.suptitle(get_title(args, "Equilibrium", time_value))
-        canvas.fig.set_size_inches(14, 8)
-        canvas.fig.subplots_adjust(top=0.933, bottom=0.05, left=0.024, right=0.988, hspace=0.221, wspace=0.25)
-        canvas.get_current_fig_manager().set_window_title(os.path.basename(__file__))
-        if args.save:
-            fname = get_file_name(args, f"{os.path.basename(__file__)}_Equilibrium", time_value)
-            if args.directory:
-                if not os.path.exists(args.directory):
-                    os.makedirs(args.directory)
-                fname = os.path.join(args.directory, fname)
-            canvas.save(fname)
+        if args.profiles:
+            canvas.fig.set_size_inches(10 + col_size * 1.6, 8)
+            canvas.fig.subplots_adjust(top=0.933, bottom=0.100, left=0.05, right=0.955, hspace=0.221, wspace=0.20)
         else:
-            canvas.show()
+            canvas.fig.set_size_inches(14, 8)
+            canvas.fig.subplots_adjust(top=0.933, bottom=0.100, left=0.05, right=0.955, hspace=0.221, wspace=0.25)
+
+        def create_overlays(show_legend=True):
+            plot_md_overlay()
+            view_object.view_magnetic_poloidal_flux(
+                ax1,
+                time_slice,
+                plot_magnetic_axis=True,
+                plot_current_centre=True,
+                plot_boundary_data=True,
+                plot_boundary_outline=True,
+                plot_phi=False,
+                plot_annotations=not args.profiles,
+                plot_psi=False,
+            )
+            legend = ax1.get_legend()
+            if legend is not None:
+                legend.set_visible(show_legend)
+
+        if args.no_overlay:
+            legend = ax1.get_legend()
+            if legend is not None:
+                legend.set_visible(not args.profiles)
+        else:
+            create_overlays(show_legend=not args.profiles)
+
+        provenance_parts = []
+        if not args.no_provenance:
+            provenance_parts.append(get_database_path(args).strip())
+            if md_overlay_state["provenance_lines"]:
+                provenance_parts.extend(md_overlay_state["provenance_lines"])
+        title = " | ".join(provenance_parts)
+        if title and time_value is not None:
+            title += f"\n#time:{time_value:.3f}"
+        canvas.set_sup_title(title, fontsize=8, y=0.985)
+
+        canvas.get_current_fig_manager().set_window_title(os.path.basename(__file__))
+        show_plot(canvas, args, f"{os.path.basename(__file__)}_Equilibrium", time_value)
     else:
         logger.warning("Can not produce plot, equilibrium/time is None")

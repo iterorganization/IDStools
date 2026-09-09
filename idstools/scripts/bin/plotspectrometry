@@ -17,9 +17,9 @@ from idstools.compute.spectrometer_visible import SpectrometerVisibleCompute
 from idstools.database import DBMaster
 from idstools.utils.clihelper import (
     dbentry_parser,
+    show_plot,
     get_database_path,
     get_file_name,
-    get_title,
     rcparam_parser,
 )
 from idstools.utils.idslogger import setup_logger
@@ -42,7 +42,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--save",
-        help="Save figure at default location",
+        help=(
+            "Save the plot to a file instead of opening a window. "
+            "If no plot window is available, it is saved automatically."
+        ),
         action="store_true",
     )
     parser.add_argument(
@@ -97,19 +100,10 @@ if __name__ == "__main__":
             ax.get_legend().remove()
 
     canvas_radiance.fig.subplots_adjust(top=0.88, bottom=0.11, left=0.065, right=0.893, hspace=0.497, wspace=0.243)
-    canvas_radiance.set_text(text=f"{get_database_path(args, time_value=time_value)}")
-    canvas_radiance.fig.suptitle(get_title(args, "Spectrum (Radiance) from spectrometer_visible", time_value))
+    canvas_radiance.set_sup_title(get_database_path(args, time_value=time_value))
     canvas_radiance.get_current_fig_manager().set_window_title(os.path.basename(__file__) + "-radiance")
 
-    if args.save:
-        fname = get_file_name(args, os.path.basename(__file__) + "-radiance", time_value)
-        if args.directory:
-            if not os.path.exists(args.directory):
-                os.makedirs(args.directory)
-            fname = os.path.join(args.directory, fname)
-        canvas_radiance.save(fname)
-    else:
-        canvas_radiance.show(block=False)
+    show_plot(canvas_radiance, args, os.path.basename(__file__) + "-radiance", time_value, show_kwargs={"block": False})
     canvas_intensity = PlotCanvas(rows, columns)
     canvas_intensity.update_style(args.rc)
     row_counter = 0
@@ -124,18 +118,11 @@ if __name__ == "__main__":
         if column_counter != 0:
             ax.get_legend().remove()
 
-    canvas_intensity.set_text(text=f"{get_database_path(args, time_value=time_value)}")
-    canvas_intensity.fig.suptitle(get_title(args, "Spectrum (Intensity) from spectrometer_visible", time_value))
+    canvas_intensity.set_sup_title(get_database_path(args, time_value=time_value))
     canvas_intensity.fig.subplots_adjust(top=0.88, bottom=0.113, left=0.033, right=0.891, hspace=0.497, wspace=0.18)
     canvas_intensity.get_current_fig_manager().set_window_title(os.path.basename(__file__) + "-intensity")
 
-    if args.save:
-        fname = get_file_name(args, os.path.basename(__file__) + "_intensity", time_value)
-        if args.directory:
-            if not os.path.exists(args.directory):
-                os.makedirs(args.directory)
-            fname = os.path.join(args.directory, fname)
-        canvas_intensity.save(fname)
-    else:
-        canvas_intensity.show(block=True)
+    show_plot(
+        canvas_intensity, args, os.path.basename(__file__) + "_intensity", time_value, show_kwargs={"block": True}
+    )
     connection.close()

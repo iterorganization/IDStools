@@ -209,7 +209,6 @@ class CoreSourcesView:
         """
         The function `view_power_and_particle_waveforms` plots power waveforms for different sources and particles
         over time.
-
         Args:
             ax: The parameter `ax` is an instance of the `Axes` class from the `matplotlib.pyplot` module. It
                 represents the axes on which the waveforms will be plotted.
@@ -231,37 +230,71 @@ class CoreSourcesView:
                 )
                 source_names = self.core_sources_compute.get_source_names(time_slice)
                 ax.set_title("POWER AND PARTICLE WAVEFORMS")
+
+                # --- Marker spacing: ~8 markers per curve ---
+                markevery = max(1, ntime // 8)
+
+                # --- Per-source markers cycle ---
+                markers = ["o", "s", "D", "^", "v", "P", "X", "*"]
+
                 ax.plot(
                     time_array,
                     single_and_total_electrons_ions_waveforms["total_power_waveform"] * 1.0e-6,
                     label=r"Total electrons+ions",
+                    linestyle="-",
+                    linewidth=3.5,
+                    alpha=0.5,
+                    color="black",
                 )
                 ax.plot(
                     time_array,
                     single_and_total_electrons_waveforms["total_electron_power_waveform"] * 1.0e-6,
                     label=r"Total electrons",
+                    linestyle="--",
+                    linewidth=3.0,
+                    alpha=0.5,
+                    color="tab:blue",
                 )
                 ax.plot(
                     time_array,
                     single_and_total_ions_waveforms["total_ion_power_waveform"] * 1.0e-6,
                     label=r"Total ions",
+                    linestyle=":",
+                    linewidth=3.0,
+                    alpha=0.5,
+                    color="tab:red",
                 )
-
                 for isource, name in source_names.items():
+                    marker = markers[isource % len(markers)]
                     ax.plot(
                         time_array,
                         single_and_total_electrons_ions_waveforms["single_power_waveform"][isource] * 1.0e-6,
                         label=name + " [" + str(isource) + "]" + " electrons+ions",
+                        linestyle="-",
+                        linewidth=1.8,
+                        marker=marker,
+                        markersize=5,
+                        markevery=markevery,
                     )
                     ax.plot(
                         time_array,
                         single_and_total_electrons_waveforms["single_electron_power_waveform"][isource] * 1.0e-6,
                         label=name + " [" + str(isource) + "]" + " electrons",
+                        linestyle="--",
+                        linewidth=1.5,
+                        marker=marker,
+                        markersize=4,
+                        markevery=markevery,
                     )
                     ax.plot(
                         time_array,
                         single_and_total_ions_waveforms["single_ion_power_waveform"][isource] * 1.0e-6,
                         label=name + " [" + str(isource) + "]" + " ions",
+                        linestyle=":",
+                        linewidth=1.5,
+                        marker=marker,
+                        markersize=4,
+                        markevery=markevery,
                     )
                 ax.set_ylabel("Power waveforms $\\mathrm{[MW]}$")
                 ax.set_xlabel("Time (s)")

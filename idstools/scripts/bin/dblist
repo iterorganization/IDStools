@@ -234,7 +234,15 @@ def print_times(dbs, args, print_times=False, pulse_number=None, run_number=None
                             print(TAB * 4 + " Run: " + extended(str(run), RUN_STR_LEN))
                         available_ids_and_times = get_available_ids_and_times(connection)
                         for idsname, times in available_ids_and_times:
-                            if len(times) == 1 and np.isnan(times[0]):
+                            if times is None:
+                                print(
+                                    TAB * 5
+                                    + extended(idsname, IDSNAME_STR_LEN)
+                                    + ": "
+                                    + extended("N/A", SLICENUM_STR_LEN)
+                                    + " slices ( time unavailable )"
+                                )
+                            elif len(times) == 1 and np.isnan(times[0]):
                                 print(
                                     TAB * 5
                                     + extended(idsname, IDSNAME_STR_LEN)
@@ -311,7 +319,15 @@ def print_times_with_folder(dbs, print_times=False, pulse_number=None, run_numbe
                 continue
             available_ids_and_times = get_available_ids_and_times(connection)
             for idsname, times in available_ids_and_times:
-                if times is not None:
+                if times is None:
+                    print(
+                        TAB * 15
+                        + extended(idsname, IDSNAME_STR_LEN)
+                        + ": "
+                        + extended("N/A", SLICENUM_STR_LEN)
+                        + " slices ( time unavailable )"
+                    )
+                else:
                     if len(times) == 1 and np.isnan(times[0]):
                         print(
                             TAB * 15

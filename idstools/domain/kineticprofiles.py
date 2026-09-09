@@ -787,7 +787,7 @@ class KineticProfilesCompute:
             if len(_zeff) != self.nrho:
                 logger.warning("core_profiles.profiles_1d[:].zeff could not be read.")
                 logger.warning(f"Size mismatch: rho_tor_norm = {self.nrho}, " f"zeff = {len(_zeff)}")
-                _zeff = np.asarray([np.NaN] * self.nrho)
+                _zeff = np.asarray([np.nan] * self.nrho)
             for i in range(self.nrho):
                 zeff[i] = _zeff[i]
         if self.is_edge_profiles_present:
@@ -795,14 +795,14 @@ class KineticProfilesCompute:
                 _zeff = self.edge_profiles.profiles_1d[self.time_index_edge_profiles].zeff.value
                 if len(_zeff) < 1:
                     logger.warning("edge_profiles.profiles_1d[:].zeff could not be read.")
-                    _zeff = np.asarray([np.NaN] * self.erho)
+                    _zeff = np.asarray([np.nan] * self.erho)
                 for i in range(self.erho):
                     zeff[self.nrho + i] = _zeff[i]
             else:
                 _gset = self.edge_profiles.ggd[self.time_index_edge_profiles].zeff[self.gset].values
                 if len(_gset) < 1:
                     logger.warning("edge_profiles.ggd[:].zeff could not be read.")
-                    _gset = np.asarray([np.NaN] * self.erho)
+                    _gset = np.asarray([np.nan] * self.erho)
                 for i in range(self.erho):
                     zeff[self.nrho + i] = _gset[i]
         return zeff
@@ -814,7 +814,7 @@ class KineticProfilesCompute:
         Returns:
             The function `getne_profile` returns a list of electron density values. The electron density
             values are collected from different sources based on the conditions specified in the function.
-            The returned list contains electron density values for both core and edge profiles, with NaN
+            The returned list contains electron density values for both core and edge profiles, with nan
             values filled in case of missing data.
         """
         electron_density = [0] * (self.nrho + self.erho)
@@ -823,7 +823,7 @@ class KineticProfilesCompute:
             if len(_density) != self.nrho:
                 logger.warning("core_profiles.profiles_1d[:].electrons.density could not be read.")
                 logger.warning(f"Size mismatch: rho_tor_norm = {self.nrho}, electrons.density =" f"{len(_density)}")
-                _density = np.asarray([np.NaN] * self.nrho)
+                _density = np.asarray([np.nan] * self.nrho)
             for i in range(self.nrho):
                 electron_density[i] = _density[i]
         if self.is_edge_profiles_present:
@@ -831,14 +831,14 @@ class KineticProfilesCompute:
                 _density = self.core_profiles.profiles_1d[self.time_index_edge_profiles].electrons.density.value
                 if len(_density) < 1:
                     logger.warning("edge_profiles.profiles_1d[:].electrons.density could not be read.")
-                    _density = np.asarray([np.NaN] * self.erho)
+                    _density = np.asarray([np.nan] * self.erho)
                 for i in range(self.erho):
                     electron_density[self.nrho + i] = _density[i]
             else:
                 _gset = self.edge_profiles.ggd[self.time_index_edge_profiles].electrons.density[self.gset].values
-                if len() < 1:
+                if len(_gset) < 1:
                     logger.warning("edge_profiles.ggd[:].electrons.density could not be read.")
-                    _gset = np.asarray([np.NaN] * self.erho)
+                    _gset = np.asarray([np.nan] * self.erho)
                 for i in range(self.erho):
                     electron_density[self.nrho + i] = _gset[i]
         return electron_density
@@ -862,7 +862,7 @@ class KineticProfilesCompute:
                 logger.warning(
                     f"Size mismatch: rho_tor_norm = {self.nrho}, electrons.temperature = " f"{len(_temperature)}"
                 )
-                _temperature = np.asarray([np.NaN] * self.nrho)
+                _temperature = np.asarray([np.nan] * self.nrho)
             for i in range(self.nrho):
                 electron_temperature[i] = _temperature[i] * 1.0e-3
         if self.is_edge_profiles_present:
@@ -870,14 +870,14 @@ class KineticProfilesCompute:
                 _temperature = self.edge_profiles.profiles_1d[self.time_index_edge_profiles].electrons.temperature
                 if len(_temperature) < 1:
                     logger.warning("edge_profiles.profiles_1d[:].electrons.temperature could not be read.")
-                    _temperature = np.asarray([np.NaN] * self.erho)
+                    _temperature = np.asarray([np.nan] * self.erho)
                 for i in range(self.erho):
                     electron_temperature[self.nrho + i] = _temperature[i] * 1.0e-3
             else:
                 _gset = self.edge_profiles.ggd[self.time_index_edge_profiles].electrons.temperature[self.gset].values
-                if len() < 1:
+                if len(_gset) < 1:
                     logger.warning("edge_profiles.ggd[:].electrons.temperature could not be read.")
-                    _gset = np.asarray([np.NaN] * self.erho)
+                    _gset = np.asarray([np.nan] * self.erho)
                 for i in range(self.erho):
                     electron_temperature[self.nrho + i] = _gset[i] * 1.0e-3
         return electron_temperature
@@ -897,7 +897,7 @@ class KineticProfilesCompute:
             if len(t_i_average) != self.nrho:
                 logger.warning("core_profiles.profiles_1d[:].t_i_average could not be read.")
                 logger.warning(f"Size mismatch: rho_tor_norm = {self.nrho}, t_i_average = " f"{len(t_i_average)}")
-                t_i_average = np.asarray([np.NaN] * self.nrho)
+                t_i_average = np.asarray([np.nan] * self.nrho)
             else:
                 ti_flag = 1
         ti_e_flag = 0
@@ -905,16 +905,16 @@ class KineticProfilesCompute:
 
             if not self.r_out_graph:
                 t_i_average = self.edge_profiles.profiles_1d[self.time_index_edge_profiles].t_i_average.value
-                if len() < 1:
+                if len(t_i_average) < 1:
                     logger.warning("edge_profiles.profiles_1d[:].t_i_average could not be read.")
-                    t_i_average = np.asarray([np.NaN] * self.erho)
+                    t_i_average = np.asarray([np.nan] * self.erho)
                 else:
                     ti_e_flag = 1
             else:
                 t_i_average = self.edge_profiles.ggd[self.time_index_edge_profiles].t_i_average[self.gset].values
-                if len() < 1:
+                if len(t_i_average) < 1:
                     logger.warning("edge_profiles.ggd[:].t_i_average could not be read.")
-                    t_i_average = np.asarray([np.NaN] * self.erho)
+                    t_i_average = np.asarray([np.nan] * self.erho)
                 else:
                     ti_e_flag = 1
 
@@ -927,7 +927,7 @@ class KineticProfilesCompute:
                         logger.warning(
                             f"Size mismatch: rho_tor_norm = {self.nrho}, ion[{ispecies}].temperature = " f"{len(temp)}"
                         )
-                        temp = np.asarray([np.NaN] * self.nrho)
+                        temp = np.asarray([np.nan] * self.nrho)
                     else:
                         ti_flag = 2
                 if self.is_edge_profiles_present and ti_e_flag == 0:
@@ -944,7 +944,7 @@ class KineticProfilesCompute:
                                     logger.warning(
                                         f"edge_profiles.profiles_1d[:].ion[{jspecies}].temperature could not be read."
                                     )
-                                    temperature = np.asarray([np.NaN] * self.erho)
+                                    temperature = np.asarray([np.nan] * self.erho)
                             else:
                                 ti_e_flag = 2
                         else:
@@ -954,7 +954,7 @@ class KineticProfilesCompute:
                             if len(temperature) < 1:
                                 if ti_e_flag != 1:
                                     logger.warning("edge_profiles.ggd[:].ion[:].temperature could not be read.")
-                                    temperature[self.gset].values = np.asarray([np.NaN] * self.erho)
+                                    temperature[self.gset].values = np.asarray([np.nan] * self.erho)
                             else:
                                 ti_e_flag = 2
 
@@ -1032,7 +1032,7 @@ class KineticProfilesCompute:
                     logger.warning(
                         f"Size mismatch: rho_tor_norm = {self.nrho}, ion[{ispecies}].density = " f"{len(density)}"
                     )
-                    density = np.asarray([np.NaN] * self.nrho)
+                    density = np.asarray([np.nan] * self.nrho)
                 for i in range(self.nrho):
                     ion_density[ispecies][i] = density[i]
             if self.is_edge_profiles_present:
@@ -1055,7 +1055,7 @@ class KineticProfilesCompute:
                                 logger.warning(
                                     f"edge_profiles.profiles_1d[:].ion[{jspecies}].density could not be read."
                                 )
-                                _density = np.asarray([np.NaN] * self.erho)
+                                _density = np.asarray([np.nan] * self.erho)
                             for i in range(self.erho):
                                 ion_density[ispecies][self.nrho + i] = _density[i]
                         else:
@@ -1089,9 +1089,9 @@ class KineticProfilesCompute:
                                 .density[self.gset]
                                 .values
                             )
-                            if len() < 1:
+                            if len(_density) < 1:
                                 logger.warning(f"edge_profiles.ggd[:].ion[{jspecies}.density could not be read.")
-                                _density = np.asarray([np.NaN] * self.erho)
+                                _density = np.asarray([np.nan] * self.erho)
                             for i in range(self.erho):
                                 ion_density[ispecies][self.nrho + i] = _density[i]
                         else:
@@ -1140,7 +1140,7 @@ class KineticProfilesCompute:
                         f"Size mismatch: rho_tor_norm = {self.nrho}, ion[{ispecies}].velocity.toroidal = "
                         f"{len(vphioid)}"
                     )
-                    vphioid = np.asarray([np.NaN] * self.nrho)
+                    vphioid = np.asarray([np.nan] * self.nrho)
                 else:
                     vphi_flag = 1
                     for i in range(self.nrho):
@@ -1152,7 +1152,7 @@ class KineticProfilesCompute:
                         logger.warning(
                             f"Size mismatch: rho_tor_norm = {self.nrho}, ion[{ispecies}].velocity_tor = " f"{len(vphi)}"
                         )
-                        vphi = np.asarray([np.NaN] * self.nrho)
+                        vphi = np.asarray([np.nan] * self.nrho)
                     else:
                         if vphi_flag == 0:
                             vphi_flag = 2
@@ -1346,7 +1346,7 @@ class KineticProfilesCompute:
                         f"Size mismatch: rho_tor_norm = {self.nrho}, ion[{ispecies}].velocity.poloidal ="
                         f"{len(vpoloidal)}"
                     )
-                    vpoloidal = np.asarray([np.NaN] * self.nrho)
+                    vpoloidal = np.asarray([np.nan] * self.nrho)
                 else:
                     vpol_flag = 1
                     for i in range(self.nrho):
@@ -1358,7 +1358,7 @@ class KineticProfilesCompute:
                         logger.warning(
                             f"Size mismatch: rho_tor_norm = {self.nrho}, ion[{ispecies}].velocity_pol = " f"{len(vpol)}"
                         )
-                        vpol = np.asarray([np.NaN] * self.nrho)
+                        vpol = np.asarray([np.nan] * self.nrho)
                     else:
                         if vpol_flag == 0:
                             vpol_flag = 2
@@ -1920,7 +1920,7 @@ class KineticProfilesCompute:
                     # )
                 except Exception as e:
                     logger.debug(f"{e}")
-                    waveform["ti"]["central"] = [np.NaN] * len(self.time_array_core_profiles)
+                    waveform["ti"]["central"] = [np.nan] * len(self.time_array_core_profiles)
 
             electrons_density = np.array([])
             for i, _ in enumerate(self.time_array_core_profiles):
@@ -2021,13 +2021,13 @@ class KineticProfilesCompute:
                         except Exception as e:
                             logger.debug(f"{e}")
                             waveform["n_species"][self.species[ispecies]]["density"]["central"] = [
-                                np.NaN
+                                np.nan
                             ] * self.common_time_length
                             waveform["n_species"][self.species[ispecies]]["vpol"]["central"] = [
-                                np.NaN
+                                np.nan
                             ] * self.common_time_length
                             waveform["n_species"][self.species[ispecies]]["vphi"]["central"] = [
-                                np.NaN
+                                np.nan
                             ] * self.common_time_length
 
                         for itime in range(self.common_time_length):

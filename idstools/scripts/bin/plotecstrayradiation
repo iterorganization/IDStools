@@ -4,6 +4,7 @@
 import argparse
 import logging
 import os
+import sys
 
 from rich_argparse import RichHelpFormatter
 
@@ -17,11 +18,11 @@ from idstools.input_processing import (
     read_wall,
 )
 from idstools.utils.clihelper import (
+    dbentry_parser,
+    show_plot,
     get_database_path,
     get_file_name,
-    get_title,
     rcparam_parser,
-    dbentry_parser,
 )
 from idstools.utils.idslogger import setup_logger
 from idstools.view.common import PlotCanvas
@@ -32,6 +33,15 @@ from idstools.view.polygon import PolygonView
 from idstools.view.waves import WavesView
 
 logger = setup_logger("module", stdout_level=logging.INFO)
+
+
+def _first_existing_path(*paths):
+    for path in paths:
+        if os.path.exists(path):
+            return path
+    return paths[-1]
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="---- Shows electron cyclotron stray radiation information by showing different plots",
@@ -46,7 +56,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--save",
-        help="Save figure at default location",
+        help=(
+            "Save the plot to a file instead of opening a window. "
+            "If no plot window is available, it is saved automatically."
+        ),
         action="store_true",
     )
     parser.add_argument(
@@ -61,20 +74,28 @@ if __name__ == "__main__":
     time_index_waves = 0
 
     current_file_path = os.path.dirname(os.path.abspath(__file__))
+    source_tree_root = os.path.abspath(os.path.join(current_file_path, "../../.."))
 
-    scenario_file = os.path.join(current_file_path, "../resources/input/scenario.yaml")
-    wallfile = os.path.join(current_file_path, "../resources/input/wall2d.txt")
-    filelaunchers = os.path.join(current_file_path, "../resources/input/ec_waveforms.yaml")
-    path_result = os.path.join(current_file_path, "../resources/results/")
-
-    if not os.path.exists(scenario_file):
-        scenario_file = os.path.join(current_file_path, "input/scenario.yaml")
-    if not os.path.exists(wallfile):
-        wallfile = os.path.join(current_file_path, "input/wall2d.txt")
-    if not os.path.exists(filelaunchers):
-        filelaunchers = os.path.join(current_file_path, "input/ec_waveforms.yaml")
-    if not os.path.exists(path_result):
-        path_result = os.path.join(current_file_path, "results/")
+    scenario_file = _first_existing_path(
+        os.path.join(source_tree_root, "resources/input/scenario.yaml"),
+        os.path.join(sys.prefix, "bin/input/scenario.yaml"),
+        os.path.join(current_file_path, "input/scenario.yaml"),
+    )
+    wallfile = _first_existing_path(
+        os.path.join(source_tree_root, "resources/input/wall2d.txt"),
+        os.path.join(sys.prefix, "bin/input/wall2d.txt"),
+        os.path.join(current_file_path, "input/wall2d.txt"),
+    )
+    filelaunchers = _first_existing_path(
+        os.path.join(source_tree_root, "resources/input/ec_waveforms.yaml"),
+        os.path.join(sys.prefix, "bin/input/ec_waveforms.yaml"),
+        os.path.join(current_file_path, "input/ec_waveforms.yaml"),
+    )
+    path_result = _first_existing_path(
+        os.path.join(source_tree_root, "resources/results"),
+        os.path.join(sys.prefix, "bin/results"),
+        os.path.join(current_file_path, "results"),
+    )
 
     wall2d = read_wall(wallfile)
 
@@ -166,7 +187,6 @@ if __name__ == "__main__":
         ax_polygon, wall2d, beam_wall, coherent_wave_index, time_index_waves, time_index_waves
     )
 
-    canvas.set_text(text=f"{get_database_path(args, time_value=time_value_equilibrium)}")
     canvas.fig.subplots_adjust(
         top=0.88,
         bottom=0.11,
@@ -175,14 +195,6 @@ if __name__ == "__main__":
         hspace=0.458,
         wspace=0.234,
     )
-    canvas.fig.suptitle(get_title(args, "EC Stray Radiation", time_value_equilibrium))
+    canvas.set_sup_title(get_database_path(args, time_value=time_value_equilibrium))
     canvas.get_current_fig_manager().set_window_title(os.path.basename(__file__))
-    if args.save:
-        fname = get_file_name(args, f"{os.path.basename(__file__)}_Equilibrium", time_value_equilibrium)
-        if args.directory:
-            if not os.path.exists(args.directory):
-                os.makedirs(args.directory)
-            fname = os.path.join(args.directory, fname)
-        canvas.save(fname)
-    else:
-        canvas.show()
+    show_plot(canvas, args, f"{os.path.basename(__file__)}_Equilibrium", time_value_equilibrium)

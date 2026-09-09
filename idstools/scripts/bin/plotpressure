@@ -17,9 +17,9 @@ from idstools.compute.common import get_nearest_time
 from idstools.database import DBMaster
 from idstools.utils.clihelper import (
     dbentry_parser,
+    show_plot,
     get_database_path,
     get_file_name,
-    get_title,
     rcparam_parser,
 )
 from idstools.utils.idslogger import setup_logger
@@ -40,7 +40,10 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--time", type=float, help="Time", default=-99)
     parser.add_argument(
         "--save",
-        help="Save figure at default location",
+        help=(
+            "Save the plot to a file instead of opening a window. "
+            "If no plot window is available, it is saved automatically."
+        ),
         action="store_true",
     )
     parser.add_argument(
@@ -69,11 +72,9 @@ if __name__ == "__main__":
 
     time_array = ids_core_profiles.time
     time_slice, time_value = get_nearest_time(time_array, args.time)
-    title = "Profiles displayed for t = " + "%.1f" % time_value + " s"
     canvas = PlotCanvas(3, 1)
 
     canvas.update_style(args.rc)
-    canvas.fig.suptitle(title)
 
     ax1 = canvas.add_axes(title="", xlabel="", row=0, col=0, colspan=1)
     ax2 = canvas.add_axes(title="", xlabel="", row=1, col=0, colspan=1)
@@ -85,18 +86,8 @@ if __name__ == "__main__":
     coreprofiles_view.plot_ion_pressure_properties(ax2, time_slice)
     coreprofiles_view.plot_electron_pressure_properties(ax3, time_slice)
 
-    canvas.set_text(text=f"{get_database_path(args, time_value=time_value)}")
-
     canvas.fig.subplots_adjust(top=0.916, bottom=0.09, left=0.044, right=0.953, hspace=0.287, wspace=0.2)
     canvas.get_current_fig_manager().set_window_title(os.path.basename(__file__))
-    canvas.fig.suptitle(get_title(args, "Pressure", time_value))
+    canvas.set_sup_title(get_database_path(args, time_value=time_value))
 
-    if args.save:
-        fname = get_file_name(args, os.path.basename(__file__) + "_Pressure", time_value)
-        if args.directory:
-            if not os.path.exists(args.directory):
-                os.makedirs(args.directory)
-            fname = os.path.join(args.directory, fname)
-        canvas.save(fname)
-    else:
-        canvas.show()
+    show_plot(canvas, args, os.path.basename(__file__) + "_Pressure", time_value)

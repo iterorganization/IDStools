@@ -68,17 +68,17 @@ dynamic_variables:
    beam[9].frequency.data: [1.70000e+11]
    beam[10].frequency.data: [1.70000e+11]
  
-   beam[0].mode: -1 # (1) O-mode, (-1) X-mode
-   beam[1].mode: -1
-   beam[2].mode: -1
-   beam[3].mode: -1
-   beam[4].mode: -1
-   beam[5].mode: -1
-   beam[6].mode: -1
-   beam[7].mode: -1
-   beam[8].mode: -1
-   beam[9].mode: -1
-   beam[10].mode: -1
+   beam[0].polarization.o_mode_fraction: [0.0] # 1.0 = O-mode, 0.0 = X-mode
+   beam[1].polarization.o_mode_fraction: [0.0]
+   beam[2].polarization.o_mode_fraction: [0.0]
+   beam[3].polarization.o_mode_fraction: [0.0]
+   beam[4].polarization.o_mode_fraction: [0.0]
+   beam[5].polarization.o_mode_fraction: [0.0]
+   beam[6].polarization.o_mode_fraction: [0.0]
+   beam[7].polarization.o_mode_fraction: [0.0]
+   beam[8].polarization.o_mode_fraction: [0.0]
+   beam[9].polarization.o_mode_fraction: [0.0]
+   beam[10].polarization.o_mode_fraction: [0.0]
  
    beam[0].steering_angle_pol: [0.00178]
    beam[1].steering_angle_pol: [0.30776]

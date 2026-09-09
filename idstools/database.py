@@ -10,6 +10,8 @@ except ImportError:
     import imas
 import yaml
 
+from idstools.utils.utility_functions import add_query_to_uri
+
 logger = logging.getLogger(f"module.{__name__}")
 
 
@@ -701,11 +703,16 @@ class DBMaster:
     def get_connection(cls, imasargs):
         connection = None
         if imasargs.uri != "" and imasargs.uri is not None:
+            uri = add_query_to_uri(
+                imasargs.uri,
+                backend="uda",
+                query="cache_mode=none",
+            )
             if "mode" in imasargs.__dict__:
-                connection = imas.DBEntry(imasargs.uri, imasargs.mode)
+                connection = imas.DBEntry(uri, imasargs.mode)
             else:
                 try:
-                    connection = imas.DBEntry(imasargs.uri, "r")
+                    connection = imas.DBEntry(uri, "r")
                 except Exception as e:
                     print(e)
         return connection
@@ -954,14 +961,14 @@ def read_scenario_with_args(
         if test_mode:
             ids = connection.get_slice(ids_name, test_args_list)
         else:
-            ids = connection.get(ids_name)
+            ids = connection.get(ids_name, autoconvert=False)
         in_ids_dict[ids_name] = ids
 
     for ids_name in out_ids_list:
         if test_mode:
             ids = connection.get_slice(ids_name, test_args_list)
         else:
-            ids = connection.get(ids_name)
+            ids = connection.get(ids_name, autoconvert=False)
         out_ids_dict[ids_name] = ids
     connection.close()
 

@@ -89,6 +89,11 @@ def plotcoresources():
     _load_script_main("plotcoresources")()
 
 
+def plotcoretransport():
+    """Plot core transport data."""
+    _load_script_main("plotcoretransport")()
+
+
 def plotkineticprofiles():
     """Plot kinetic profiles."""
     _load_script_main("plotkineticprofiles")()
@@ -284,6 +289,7 @@ __all__ = [
     "plotrotation",
     "plotequicomp",
     "plotcoresources",
+    "plotcoretransport",
     "plotkineticprofiles",
     "plothcdwaves",
     "plotecray",

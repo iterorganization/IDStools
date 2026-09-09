@@ -1,7 +1,17 @@
 import argparse
+import logging
 import os
 import re
-import socket
+from datetime import datetime
+
+from idstools.utils.matplotlib_backend import (
+    _configure_backend_from_cli_rc,
+    _is_jupyter,
+)
+
+_configure_backend_from_cli_rc()
+
+logger = logging.getLogger("module")
 
 try:
     import imaspy as imas
@@ -67,6 +77,11 @@ rcparam_parser.add_argument(
     type=str,
     default="",
     help="Semicolon-separated rcParams string (e.g., 'lines.linewidth=2;axes.titlesize=14')",
+)
+rcparam_parser.add_argument(
+    "--no-provenance",
+    action="store_true",
+    help="Hide URI provenance information from plot titles",
 )
 
 
@@ -192,21 +207,46 @@ def get_title(imasargs, title="", time_value=None):
 
 
 def get_file_name(imasargs, title="", time_value=None):
-    _file_name = ""
-    if title:
-        _file_name += f"{title}_"
-    if "uri" in imasargs.__dict__ and imasargs.uri:
-        param = get_details_from_uri(imasargs.uri)
-        if param["pathPresent"]:
-            _file_name += f"PATH_{param['path'].replace('/', '_')}_"
-        else:
-            _file_name += f"PULSE_{param['pulse']}_RUN_{param['run']}_"
-    else:
-        _file_name += f"PULSE_{imasargs.pulse}_RUN_{imasargs.run}_"
-    if time_value:
-        _file_name += f"TIME_{time_value:.3f}"
-    _file_name += ".png"
-    return _file_name
+    tool_name = title or "plot"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return f"{tool_name}_{timestamp}.png"
+
+
+def _is_interactive_backend(canvas):
+    """Return True for GUI and notebook widget backends."""
+    import matplotlib
+
+    backend = matplotlib.get_backend().lower()
+    if backend in ("widget", "ipympl", "module://ipympl.backend_nbagg"):
+        return True
+    return getattr(canvas.fig.canvas, "required_interactive_framework", None) is not None
+
+
+def show_plot(canvas, imasargs, title="", time_value=None, fname=None, show_kwargs=None):
+    """Display interactive plots and save non-interactive plots automatically."""
+    noninteractive = not _is_interactive_backend(canvas)
+    if not imasargs.save and (_is_jupyter() or not noninteractive):
+        canvas.show(**(show_kwargs or {}))
+        return
+
+    automatic_save = noninteractive and not imasargs.save
+    if fname is None:
+        fname = get_file_name(imasargs, title, time_value)
+    if automatic_save:
+        extension = canvas.fig.canvas.get_default_filetype()
+        fname = f"{os.path.splitext(fname)[0]}.{extension}"
+    if imasargs.directory:
+        os.makedirs(imasargs.directory, exist_ok=True)
+        fname = os.path.join(imasargs.directory, fname)
+    if automatic_save:
+        import matplotlib
+
+        logger.info(
+            "Non-interactive Matplotlib backend '%s' detected; saving figure to %s",
+            matplotlib.get_backend(),
+            fname,
+        )
+    canvas.save(fname)
 
 
 def get_database_path(imasargs, time_value=None) -> str:
@@ -219,6 +259,9 @@ def get_database_path(imasargs, time_value=None) -> str:
     Returns:
         the absolute path of the database.
     """
+    if getattr(imasargs, "no_provenance", False):
+        return ""
+
     pulse_info = ""
     database_absolute_path = ""
     if "uri" in imasargs.__dict__ and imasargs.uri:
@@ -241,11 +284,10 @@ def get_database_path(imasargs, time_value=None) -> str:
         database_absolute_path = database_absolute_path[:-2]
     time_string = ""
     if time_value:
-        time_string = f"time:{time_value:.3f})"
-    hostdir = f"{socket.gethostname()}:{database_absolute_path} "
+        time_string = f"time:{time_value:.3f}"
+    hostdir = f"{database_absolute_path} "
     if pulse_info:
         hostdir += f"({pulse_info})"
     if time_string:
         hostdir += f"#{time_string}"
-    #
     return hostdir

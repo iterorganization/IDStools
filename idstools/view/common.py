@@ -2,48 +2,20 @@ import logging
 import os
 import sys
 
-import matplotlib
+from idstools.utils.matplotlib_backend import (
+    _configure_backend_from_cli_rc,
+    _is_jupyter,
+)
 
+_configure_backend_from_cli_rc()
 
-def _is_jupyter() -> bool:
-    """Return True if running inside a Jupyter notebook/lab/Colab kernel."""
-    try:
-        from IPython import get_ipython
-
-        shell = get_ipython()
-        if shell is None:
-            return False
-        shell_class = shell.__class__.__name__
-        # ZMQInteractiveShell: Jupyter Notebook/Lab
-        # Shell: Google Colab
-        return shell_class in ("ZMQInteractiveShell", "Shell")
-    except ImportError:
-        return False
-
-
-# Select the appropriate matplotlib backend
-if _is_jupyter():
-    if "matplotlib.pyplot" not in sys.modules:
-        try:
-            import ipympl  # noqa: F401 - imported to check availability
-
-            matplotlib.use("widget")
-        except ImportError:
-            matplotlib.use("agg")
-elif sys.platform.startswith("win") or "DISPLAY" in os.environ:
-
-    try:
-        import tkinter  # noqa: F401 - imported to check availability
-
-        matplotlib.use("TkAgg")
-    except (ImportError, ModuleNotFoundError):
-        matplotlib.use("agg")
-else:
-    matplotlib.use("agg")
+import matplotlib  # noqa: E402 - backend env must be set before importing matplotlib
 
 import matplotlib.pyplot as plt  # noqa: E402
 
 logger = logging.getLogger("module")
+
+PROVENANCE_TITLE_STYLE = {"fontsize": 8, "fontweight": "normal"}
 
 current_directory = os.path.abspath(os.path.dirname(__file__))
 # reach to `share` directory (sys.prefix won't work if using --prefix option)
@@ -217,6 +189,9 @@ class PlotCanvas:
             >>> canvas = PlotCanvas(nrows=2, ncols=2)
             >>> canvas.set_sup_title("Main Figure Title", fontsize=16, fontweight='bold')
         """
+        for key, value in PROVENANCE_TITLE_STYLE.items():
+            kwargs.setdefault(key, value)
+        kwargs.setdefault("y", 0.985)
         plt.suptitle(text, *args, **kwargs)
 
     def show(self, *args, **kwargs):
@@ -234,8 +209,8 @@ class PlotCanvas:
             None
 
         Notes:
-            Uses the TkAgg backend for window resizing when available.
-            Other backends (agg, Qt) may not support window maximization.
+            Window maximization depends on the backend selected by Matplotlib.
+            Some backends may not support it.
 
         Examples:
             >>> canvas = PlotCanvas()
@@ -249,14 +224,14 @@ class PlotCanvas:
                 from IPython.display import display
 
                 display(self.fig)
-                if backend != "module://matplotlib_ipympl.backend_nbagg":
-                    plt.close("all")
+                if backend not in ("widget", "ipympl", "module://ipympl.backend_nbagg"):
+                    plt.close(self.fig)
             except ImportError:
                 pass
             return
         wm = self.get_current_fig_manager()
         try:
-            # Try to maximize the window (only works with TkAgg backend)
+            # Try to maximize the window when the active backend exposes one.
             window = wm.window
             screen_y = window.winfo_screenheight()
             screen_x = window.winfo_screenwidth()
