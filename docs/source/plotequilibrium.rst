@@ -13,6 +13,10 @@ shows PF coil positions and a toroidal-flux contour overlay.
 
    \Phi(R,Z) \quad [\mathrm{Wb}]
 
+.. versionchanged:: 2.5.0
+
+   Removed the ``--show-labels`` option. Remove it from existing commands.
+
 
 ************************
  Syntax plotequilibrium

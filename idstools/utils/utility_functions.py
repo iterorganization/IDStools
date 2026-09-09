@@ -5,11 +5,11 @@ logger = logging.getLogger(f"module.{__name__}")
 
 
 def add_query_to_uri(uri: str, *, query: str, backend=None):
-    """Add a query to the URI.
+    """Add a default query parameter to the URI, preserving an existing key.
 
     If a backend is given, add the query only when it matches the URI's
     backend. Otherwise, return the original URI unchanged. When backend is
-    None, add the query to any URI.
+    None, add the query to any URI. Query parameters use semicolon separators.
     """
     uri_parts = urlsplit(uri)
     uri_backend = uri_parts.path.rsplit("/", 1)[-1]
