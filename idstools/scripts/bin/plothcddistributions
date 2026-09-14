@@ -14,9 +14,9 @@ from idstools.compute.common import get_nearest_time
 from idstools.database import DBMaster
 from idstools.utils.clihelper import (
     dbentry_parser,
+    show_plot,
     get_database_path,
     get_file_name,
-    get_title,
     rcparam_parser,
 )
 from idstools.utils.idslogger import setup_logger
@@ -67,8 +67,6 @@ def show_plots(args):
             distributions_view.plot_nbi_fus_power_and_cd_waveforms(ax4, time_slice)
             distributions_view.plot_cd_waveform(ax5, time_slice)
 
-        canvas.set_text(text=f"{get_database_path(args, time_value=time_value)}")
-
         canvas.fig.subplots_adjust(
             top=0.92,
             bottom=0.122,
@@ -78,17 +76,9 @@ def show_plots(args):
             wspace=0.328,
         )
         canvas.get_current_fig_manager().set_window_title(os.path.basename(__file__))
-        canvas.fig.suptitle(get_title(args, "Distributions profile", time_value))
+        canvas.set_sup_title(get_database_path(args, time_value=time_value))
 
-        if args.save:
-            fname = get_file_name(args, os.path.basename(__file__) + "_Distributions_profile", time_value)
-            if args.directory:
-                if not os.path.exists(args.directory):
-                    os.makedirs(args.directory)
-                fname = os.path.join(args.directory, fname)
-            canvas.save(fname)
-        else:
-            canvas.show()
+        show_plot(canvas, args, os.path.basename(__file__) + "_Distributions_profile", time_value)
     conn.close()
 
 
@@ -102,7 +92,10 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--save",
-        help="Save figure at default location",
+        help=(
+            "Save the plot to a file instead of opening a window. "
+            "If no plot window is available, it is saved automatically."
+        ),
         action="store_true",
     )
     parser.add_argument(

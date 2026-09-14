@@ -10,6 +10,7 @@ import sys
 import time
 from io import BytesIO
 
+from idstools.view.common import PlotCanvas
 import matplotlib.pyplot as plt
 import numpy as np
 import rich
@@ -43,8 +44,6 @@ slicing_methods = {
 
 
 def view_plot(ax, field, coordinate, field_name="", coordinate_name="", field_unit="", coordinate_unit="", **kwargs):
-    from idstools.view.common import PlotCanvas
-
     if not isinstance(field, (imas.ids_primitive.IDSNumericArray, np.ndarray)):
         print("Not a numeric array, Please select ids path")
         return
@@ -506,7 +505,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--save",
-        help="Save figure at default location",
+        help=(
+            "Save the plot to a file instead of opening a window. "
+            "If no plot window is available, it is saved automatically."
+        ),
         action="store_true",
     )
     parser.add_argument(
@@ -702,8 +704,6 @@ if __name__ == "__main__":
                             ] = compare_data
 
                         if args.plot and not args.html:
-                            from idstools.view.common import PlotCanvas
-
                             canvas = PlotCanvas(1, 1)
                             canvas.update_style(args.rc)
                             ax = canvas.add_axes(title="", xlabel="", row=0, col=0)

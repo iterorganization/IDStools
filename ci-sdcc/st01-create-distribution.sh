@@ -3,8 +3,7 @@
 # Execute script from root directory
 
 # setup environment
-# Get toolchain version
-source ./ci-sdcc/st00-header.sh $1 $2
+source ./ci-sdcc/st00-header.sh
 
 if [[ "$(uname -n)" == *"bamboo"* ]]; then
     set -e -u -o pipefail

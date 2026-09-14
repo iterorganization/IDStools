@@ -14,7 +14,10 @@ except ImportError:
     import imas
 import numpy as np
 
+from idstools.compute.common import get_compat_attr
 from idstools.database import DBMaster
+
+_IDS_VALID_THRESHOLD = abs(imas.ids_defs.EMPTY_FLOAT)
 
 logger = logging.getLogger("module")
 
@@ -41,90 +44,81 @@ class EquilibriumCompute:
         This function returns a dictionary containing 2D Cartesian grid coordinates and psi values from
         an equilibrium IDS object.
 
+        Only a rectangular cylindrical grid (``grid_type.index == 1``) with populated
+        ``profiles_2d.grid.dim1``/``dim2`` is supported. Entries that instead fill the 2-D
+        ``profiles_2d.r``/``z`` arrays directly (e.g. non-rectangular grids) are not supported and
+        return ``None``.
 
         Args:
             time_slice (int): The time slice index of the equilibrium data to be used for generating the
-                2D Cartesian grid. Defaults to 0
-            profiles2d_index (int): `profiles2d_index` is an integer parameter that represents the index of the
-                ``profile_2d`` to be used in the calculation. It is used to access the specific 2D profile from the
-                list of profiles in the `time_slice` object. Defaults to 0
+            2D Cartesian grid. Defaults to 0
+            profiles2d_index (int): An integer parameter that represents the index of the
+            ``profiles_2d`` to be used in the calculation. It is used to access the specific 2D profile from the
+            list of profiles in the `time_slice` object. Defaults to 0
 
         Returns:
-            A dictionary containing the 2D Cartesian grid coordinates (r2d and z2d) and the corresponding psi
-            values (psi2d).
+            A dictionary with the 1-D grid axis vectors ``r2d`` (shape ``(N_R,)``) and ``z2d``
+            (shape ``(N_Z,)``) taken from ``profiles_2d.grid.dim1``/``dim2``, and the 2-D psi values
+            ``psi2d`` (shape ``(N_R, N_Z)``); or ``None`` if the data is unavailable or invalid.
+            Despite the ``2d`` suffix, ``r2d``/``z2d`` are 1-D axis vectors, not full 2-D meshes -
+            suitable for ``ax.contour(r2d, z2d, psi2d.T)``, but not for ``result["r2d"][i, j]``
+            style indexing.
 
         Example:
             .. code-block:: python
 
-                import imas
-                connection = imas.DBEntry("imas:mdsplus?user=public;pulse=134173;run=106;database=ITER;version=3","r")
-                idsObj = connection.get('equilibrium')
-                computeObj = EquilibriumCompute(idsObj)
-                result = computeObj.get2d_cartesian_grid(time_slice=0)
+            import imas
+            connection = imas.DBEntry("imas:mdsplus?user=public;pulse=134173;run=106;database=ITER;version=3","r")
+            idsObj = connection.get('equilibrium')
+            computeObj = EquilibriumCompute(idsObj)
+            result = computeObj.get2d_cartesian_grid(time_slice=0)
 
-                {'psi2d': array([[]]),
-                'r2d': array([[]]),
-                'z2d': array([[]])}
+            {'r2d': array([...]), 'z2d': array([...]), 'psi2d': array([[...]])}
         """
-        profiles2d = None
+        profiles2d = r1d = z1d = None
         try:
-            profiles2d = self.ids.time_slice[time_slice].profiles_2d[
-                profiles2d_index
-            ]  # using https://docs.python.org/2/glossary.html#term-eafp style
+            profiles2d = self.ids.time_slice[time_slice].profiles_2d[profiles2d_index]
         except IndexError:
             logger.error(f"equilibrium.time_slice[{time_slice}].profiles_2d[{profiles2d_index}] is not available")
             return None
 
         profiles2d = self.ids.time_slice[time_slice].profiles_2d[profiles2d_index]
-        r2d = profiles2d.r
-        z2d = profiles2d.z
-        psi2d = profiles2d.psi
 
-        if profiles2d.grid_type.index == 1 and np.size(r2d) == 0:
-            logger.warning(
-                f"profiles_2d[{profiles2d_index}].r is not available and grid type is 1.. Calculating from grid"
+        if profiles2d.grid_type.index == 1 and len(profiles2d.grid.dim1) > 0 and len(profiles2d.grid.dim2) > 0:
+            logger.info(
+                f"Using equilibrium.time_slice[{time_slice}]"
+                f".profiles_2d[{profiles2d_index}].grid.dim1/dim2 for the 2D grid"
             )
             r1d = profiles2d.grid.dim1
             z1d = profiles2d.grid.dim2
-            nr = len(r1d)
-            nz = len(z1d)
-            r2d = np.empty(shape=(nr, nz))
-            z2d = np.empty(shape=(nr, nz))
-            for iz in range(nz):
-                r2d[:, iz] = r1d
-            for ir in range(nr):
-                z2d[ir, :] = z1d
+        else:
+            logger.error("Only rectangular cylindrical grid (grid_type=1) is supported for now")
+            return None
+
+        psi2d = profiles2d.psi
 
         if np.all(psi2d == 0.0):
             logger.error(
                 "All values of psi2d are 0. No contour levels were found within the data range, Can not plot contour"
             )
             return None
-        if np.size(r2d) != np.size(z2d) or np.size(r2d) != np.size(psi2d):
-            logger.error(
-                f"r, z and psi have not the same dimension in \
-                equilibrium.time_slice[{time_slice}].profiles_2d[{profiles2d_index}]"
-            )
-            return None
 
-        return {"r2d": r2d, "z2d": z2d, "psi2d": psi2d}
+        return {"r2d": r1d, "z2d": z1d, "psi2d": psi2d}
 
-    def get_rho2d(self, time_slice: int, profiles2d_index: int = 0) -> Union[np.ndarray, None]:
+    def get_phi2d(self, time_slice: int, profiles2d_index: int = 0) -> Union[np.ndarray, None]:
         """
-        This function calculates rho(R,Z) using toroidal flux  and returns a dictionary containing the result.
+        Returns the toroidal magnetic flux Φ(R,Z) on the 2D grid.
+
+        Reads ``equilibrium.time_slice[i].profiles_2d[j].phi`` directly from the IDS.
 
         Args:
-            time_slice (int): The time slice is an integer value that represents the index of the time slice in
-                the equilibrium ids. It is used to select a specific time slice for the calculation of rho(R,Z).
-                Defaults to 0
-            profiles2d_index (int): `profiles2d_index` is an integer parameter that represents the index of  the
-                ``profiles_2d`` to be used for the calculation of rho(R,Z). It is used to access the `profiles_2d`
-                list in the `time_slice` object. Defaults to 0
+            time_slice (int): Index of the time slice in the equilibrium IDS. Defaults to 0.
+            profiles2d_index (int): Index into ``profiles_2d`` from which
+                ``phi`` (toroidal flux, Wb) is read. Defaults to 0.
 
         Returns:
-            a value containing the square root of the toroidal flux values divided by the maximum toroidal
-            flux value, if the length of toroidal flux  is greater than 0. If the length of toroidal flux is
-            less than 1, it returns None.
+            np.ndarray or None: 2-D array of toroidal flux Φ [Wb] with the same shape as
+            the ``profiles_2d`` grid, or None if ``phi`` is unavailable or all-NaN.
 
         Examples:
             .. code-block:: python
@@ -133,7 +127,7 @@ class EquilibriumCompute:
                 connection = imas.DBEntry("imas:mdsplus?user=public;pulse=134173;run=106;database=ITER;version=3", "r")
                 idsObj = connection.get('equilibrium')
                 computeObj = EquilibriumCompute(idsObj)
-                result = computeObj.get_rho2d(time_slice=0)
+                result = computeObj.get_phi2d(time_slice=0)
 
         """
         phi = None
@@ -150,7 +144,7 @@ class EquilibriumCompute:
                 f"all values are nan for equilibrium.time_slice[{time_slice}].profiles_2d[{profiles2d_index}].phi "
             )
             return None
-        return np.sqrt(phi / np.amax(phi))
+        return phi
 
     def get_b_total(self, time_slice: int) -> tuple:
         """
@@ -194,9 +188,9 @@ class EquilibriumCompute:
         if list_of_profiles is not None:
             # TODO Check if we should always pick up first profile
             profile2d_index = list_of_profiles[0]
-            b_field_tor = getattr(
-                self.ids.time_slice[time_slice].profiles_2d[profile2d_index], "b_field_tor", None
-            ) or getattr(self.ids.time_slice[time_slice].profiles_2d[profile2d_index], "b_field_phi", None)
+            b_field_tor = get_compat_attr(
+                self.ids.time_slice[time_slice].profiles_2d[profile2d_index], "b_field_tor", "b_field_phi"
+            )
 
             b_total = np.sqrt(
                 self.ids.time_slice[time_slice].profiles_2d[profile2d_index].b_field_r ** 2
@@ -259,8 +253,8 @@ class EquilibriumCompute:
 
         Returns:
             a dictionary containing information about flux surfaces at a specific time slice. The dictionary includes
-            a 2D Cartesian grid, a 2D profile index, and a 2D array of rho values. If no profiles are found,
-            the function returns None.
+            a 2D Cartesian grid, a 2D profile index, and a 2D array of rho_tor_norm [-] values (dimensionless,
+            range [0, 1]). If no profiles are found, the function returns None.
         """
         GRID_TYPE_RECTANGULAR = 1
         list_of_profiles = self.get2d_profiles_indices(time_slice, GRID_TYPE_RECTANGULAR)
@@ -271,10 +265,10 @@ class EquilibriumCompute:
         profile2d_index = list_of_profiles[0]
 
         result_dict = self.get2d_cartesian_grid(time_slice, profile2d_index)
-        rho2d = self.get_rho2d(time_slice, profile2d_index)
-        if rho2d is None:
-            rho2d = []
-        result_dict["rho2d"] = rho2d
+        phi2d = self.get_phi2d(time_slice, profile2d_index)
+        if phi2d is None:
+            phi2d = []
+        result_dict["phi2d"] = phi2d
         return result_dict
 
     def get_ip(self) -> list:
@@ -300,6 +294,415 @@ class EquilibriumCompute:
             -self.ids.time_slice[time_index].global_quantities.ip * 1.0e-6
             for time_index in range(len(self.ids.time_slice))
         ]
+
+    def get_boundary_data(self, time_slice: int) -> dict:
+        """Return boundary data for a given time slice.
+
+        Reads ``boundary/outline``, ``boundary_separatrix`` (DD3), or
+        ``contour_tree`` (DD4) for the separatrix outline, X-points, and
+        strike-points. If the separatrix is still missing, falls back to
+        ``boundary/outline`` for diverted plasmas (``type==1``) or
+        ``boundary/lcfs`` for limiter/unknown.
+
+        Returns a dict with keys ``bnd_r``, ``bnd_z``, ``bnd_type``,
+        ``bnd_psi_norm``, ``bnd_geom_r``, ``bnd_geom_z``, ``sep_r``,
+        ``sep_z``, ``sep_xpoints``, ``sep_strikepoints``.
+        """
+
+        def _valid_arr(arr):
+            a = np.asarray(arr, dtype=float)
+            return a.size > 0 and np.any(np.isfinite(a) & (np.abs(a) < _IDS_VALID_THRESHOLD))
+
+        def _valid_scalar(val):
+            try:
+                v = float(val)
+                return np.isfinite(v) and abs(v) < _IDS_VALID_THRESHOLD
+            except Exception as exc:
+                logger.debug(f"get_boundary_data: invalid scalar {val!r} ({exc})")
+                return False
+
+        def _clean(arr):
+            a = np.array(arr, dtype=float, copy=True)
+            a[(~np.isfinite(a)) | (np.abs(a) >= _IDS_VALID_THRESHOLD)] = np.nan
+            return a
+
+        def _read_outline(node):
+            try:
+                r = np.asarray(node.outline.r, dtype=float)
+                z = np.asarray(node.outline.z, dtype=float)
+            except Exception as exc:
+                logger.debug(f"get_boundary_data: could not read outline from {node!r}: {exc}")
+                return None
+            if not (_valid_arr(r) and _valid_arr(z)):
+                logger.debug("get_boundary_data: outline has no valid data " f"(r.size={r.size}, z.size={z.size})")
+                return None
+            r, z = _clean(r), _clean(z)
+            # Insert NaN at large jumps so disconnected arcs are not joined
+            dist = np.sqrt(np.diff(r) ** 2 + np.diff(z) ** 2)
+            median_dist = np.nanmedian(dist)
+            if median_dist > 0:
+                breaks = np.where(dist > 20.0 * median_dist)[0] + 1
+                if len(breaks):
+                    r = np.insert(r, breaks, np.nan)
+                    z = np.insert(z, breaks, np.nan)
+            return (r, z)
+
+        def _read_points(node, attr, ids_path):
+            pts = []
+            try:
+                arr = getattr(node, attr)
+            except AttributeError:
+                logger.debug(f"get_boundary_data: {ids_path}/{attr} is not available")
+                return pts
+            except Exception as exc:
+                logger.debug(f"get_boundary_data: could not access {ids_path}/{attr}: {exc}")
+                return pts
+            try:
+                n_points = len(arr)
+            except Exception as exc:
+                logger.debug(f"get_boundary_data: could not get length of {ids_path}/{attr}: {exc}")
+                n_points = None
+            for pt_index, pt in enumerate(arr):
+                try:
+                    r, z = float(pt.r), float(pt.z)
+                except Exception as exc:
+                    logger.debug(f"get_boundary_data: could not read {ids_path}/{attr}[{pt_index}]/r|z: {exc}")
+                    continue
+                if _valid_scalar(r) and _valid_scalar(z):
+                    pts.append((r, z))
+                else:
+                    logger.debug(f"get_boundary_data: {ids_path}/{attr}[{pt_index}]/r|z invalid ({r}, {z})")
+            logger.debug(f"get_boundary_data: {ids_path}/{attr} — read {len(pts)} valid points out of {n_points}")
+            return pts
+
+        def _read_contour_tree(ts_node):
+            """Read separatrix/X-point data from ``time_slice.contour_tree.node``.
+
+            * ``node.critical_type == 1`` for X-points (saddle points)
+            * first valid X-point ``node.levelset.r/z`` as separatrix contour
+            """
+            sep_outlines = []
+            xpoints = []
+
+            nodes = ts_node.contour_tree.node
+            n_nodes = len(nodes)
+            n_saddles = 0
+            for node_index, node in enumerate(nodes):
+                try:
+                    critical_type = int(node.critical_type)
+                except Exception as exc:
+                    logger.debug(
+                        f"get_boundary_data: could not read contour_tree.node[{node_index}].critical_type: {exc}"
+                    )
+                    continue
+
+                if critical_type != 1:  # 1 = saddle / X-point
+                    continue
+                n_saddles += 1
+
+                try:
+                    xr = float(node.r)
+                    xz = float(node.z)
+                except Exception as exc:
+                    logger.debug(f"get_boundary_data: could not read contour_tree.node[{node_index}].r/z: {exc}")
+                    xr = xz = None
+
+                if xr is not None and _valid_scalar(xr) and xz is not None and _valid_scalar(xz):
+                    xpoints.append((xr, xz))
+                else:
+                    logger.debug(
+                        f"get_boundary_data: contour_tree.node[{node_index}] saddle has invalid r/z " f"({xr}, {xz})"
+                    )
+
+                # if sep_r is not None and sep_z is not None:
+                #    continue
+
+                try:
+                    r = np.asarray(node.levelset.r, dtype=float)
+                    z = np.asarray(node.levelset.z, dtype=float)
+                except Exception as exc:
+                    logger.debug(
+                        f"get_boundary_data: could not read contour_tree.node[{node_index}].levelset.r/z: {exc}"
+                    )
+                    continue
+
+                if not (_valid_arr(r) and _valid_arr(z)):
+                    logger.debug(
+                        f"get_boundary_data: contour_tree.node[{node_index}].levelset has no valid data "
+                        f"(r.size={r.size}, z.size={z.size})"
+                    )
+                    continue
+
+                if r is not None and z is not None:
+                    sep_outlines.append((_clean(r), _clean(z)))
+
+            logger.debug(
+                "get_boundary_data: contour_tree summary "
+                f"(nodes={n_nodes}, saddles={n_saddles}, xpoints={len(xpoints)}, "
+                f"has_separatrix={len(sep_outlines) > 0})"
+            )
+
+            return sep_outlines, xpoints
+
+        result = {
+            "bnd_outline": None,
+            "bnd_type": None,
+            "bnd_psi_norm": None,
+            "bnd_geom_axis": None,
+            "sep_outlines": [],
+            "sep_xpoints": [],
+            "sep_strikepoints": [],
+        }
+
+        try:
+            ts = self.ids.time_slice[time_slice]
+        except Exception as exc:
+            logger.debug(f"get_boundary_data: could not access time_slice[{time_slice}]: {exc}")
+            return result
+
+        # boundary
+        try:
+            bnd = ts.boundary
+            result["bnd_outline"] = _read_outline(bnd)
+            result["sep_xpoints"] = _read_points(bnd, "x_point", f"time_slice[{time_slice}]/boundary")
+            result["sep_strikepoints"] = _read_points(bnd, "strike_point", f"time_slice[{time_slice}]/boundary")
+            logger.debug(
+                f"get_boundary_data: time_slice[{time_slice}]/boundary summary "
+                f"(has_outline={result['bnd_outline'] is not None}, "
+                f"xpoints={len(result['sep_xpoints'])}, strikepoints={len(result['sep_strikepoints'])})"
+            )
+
+            bnd_type = int(bnd.type)
+            if bnd_type != imas.ids_defs.EMPTY_INT and _valid_scalar(bnd_type):
+                result["bnd_type"] = bnd_type
+        except Exception as exc:
+            logger.debug(f"get_boundary_data: could not read time_slice[{time_slice}]/boundary: {exc}")
+
+        try:
+            psi_norm = float(ts.boundary.psi_norm)
+            if _valid_scalar(psi_norm):
+                result["bnd_psi_norm"] = psi_norm
+        except Exception as exc:
+            logger.debug(f"get_boundary_data: could not read time_slice[{time_slice}]/boundary/psi_norm: {exc}")
+
+        try:
+            gax_r = float(ts.boundary.geometric_axis.r)
+            gax_z = float(ts.boundary.geometric_axis.z)
+            if _valid_scalar(gax_r) and _valid_scalar(gax_z):
+                result["bnd_geom_axis"] = (gax_r, gax_z)
+        except Exception as exc:
+            logger.debug(
+                f"get_boundary_data: could not read time_slice[{time_slice}]/boundary/geometric_axis/r|z: {exc}"
+            )
+
+        # boundary_separatrix (DD3 )
+        if hasattr(ts, "boundary_separatrix"):
+            sep = ts.boundary_separatrix
+            try:
+                sep_outline = _read_outline(sep)
+                if sep_outline is not None:
+                    (result["sep_outlines"]).append(sep_outline)
+                sep_xpoints = _read_points(sep, "x_point", f"time_slice[{time_slice}]/boundary_separatrix")
+                for xp in sep_xpoints:
+                    (result["sep_xpoints"]).append(xp)
+                sep_strikepoints = _read_points(sep, "strike_point", f"time_slice[{time_slice}]/boundary_separatrix")
+                for sp in sep_strikepoints:
+                    (result["sep_strikepoints"]).append(sp)
+                logger.debug(
+                    f"get_boundary_data: time_slice[{time_slice}]/boundary_separatrix summary "
+                    f"(has_outline={len(result['sep_outlines']) > 0}, "
+                    f"xpoints={len(sep_xpoints)}, strikepoints={len(sep_strikepoints)})"
+                )
+            except Exception as exc:
+                logger.debug(f"get_boundary_data: could not read time_slice[{time_slice}]/boundary_separatrix: {exc}")
+
+        # boundary_secondary_separatrix (DD3 )
+        if hasattr(ts, "boundary_secondary_separatrix"):
+            sep = ts.boundary_secondary_separatrix
+            try:
+                sep_outline = _read_outline(sep)
+                if sep_outline is not None:
+                    (result["sep_outlines"]).append(sep_outline)
+                sep_xpoints = _read_points(sep, "x_point", f"time_slice[{time_slice}]/boundary_secondary_separatrix")
+                for xp in sep_xpoints:
+                    (result["sep_xpoints"]).append(xp)
+                sep_strikepoints = _read_points(
+                    sep, "strike_point", f"time_slice[{time_slice}]/boundary_secondary_separatrix"
+                )
+                for sp in sep_strikepoints:
+                    (result["sep_strikepoints"]).append(sp)
+                logger.debug(
+                    f"get_boundary_data: time_slice[{time_slice}]/boundary_secondary_separatrix summary "
+                    f"(has_outline={len(result['sep_outlines']) > 1}, "
+                    f"xpoints={len(sep_xpoints)}, strikepoints={len(sep_strikepoints)})"
+                )
+            except Exception as exc:
+                logger.debug(
+                    f"get_boundary_data: could not read time_slice[{time_slice}]/boundary_secondary_separatrix: {exc}"
+                )
+
+        #  contour_tree.node (DD4)
+        if hasattr(ts, "contour_tree") and hasattr(ts.contour_tree, "node"):
+            contour_sep, contour_xpoints = _read_contour_tree(ts)
+
+            for sep in contour_sep:
+                (result["sep_outlines"]).append(sep)
+
+            for xp in contour_xpoints:
+                (result["sep_xpoints"]).append(xp)
+
+        # Separatrix fallback when boundary_separatrix / contour_tree provided nothing.
+        if len(result["sep_outlines"]) < 0:
+            if result["bnd_type"] == 1:
+                # type=1 (diverted): boundary/outline IS the separatrix — reuse directly.
+                if result["bnd_outline"] is not None:
+                    result["sep_outlines"] = [result["bnd_outline"]]
+                    logger.debug(
+                        f"get_boundary_data: time_slice[{time_slice}]/boundary/outline/r|z "
+                        f"— sep outline reused (type=1 diverted)"
+                    )
+            else:
+                # type=0 (limiter) or unknown: outline is the limiter contour, not the LCFS.
+                # Fall back to boundary/lcfs
+                try:
+                    r_raw = np.asarray(ts.boundary.lcfs.r, dtype=float)
+                    z_raw = np.asarray(ts.boundary.lcfs.z, dtype=float)
+                    mask = r_raw > 0
+                    r_raw, z_raw = _clean(r_raw[mask]), _clean(z_raw[mask])
+                    if r_raw.size > 0:
+                        result["sep_outlines"] = [(r_raw, z_raw)]
+                        logger.debug(
+                            f"get_boundary_data: time_slice[{time_slice}]/boundary/lcfs/r|z "
+                            f"— sep outline filled (type=2 limiter)"
+                        )
+                except Exception as exc:
+                    logger.debug(f"get_boundary_data: could not read time_slice[{time_slice}]/boundary/lcfs/r|z: {exc}")
+
+        logger.debug(
+            "get_boundary_data: final summary "
+            f"(has_boundary={result['bnd_outline'] is not None}, "
+            f"has_separatrix={len(result['sep_outlines']) > 0}, "
+            f"xpoints={len(result['sep_xpoints'])}, strikepoints={len(result['sep_strikepoints'])})"
+        )
+
+        return result
+
+    def get_magnetic_axis(self, time_slice: int) -> Union[dict, None]:
+        """Return the magnetic axis position for a given time slice.
+
+        Reads ``global_quantities.magnetic_axis.r/z`` and validates the
+        scalar values.
+
+        Args:
+            time_slice (int): Index into ``time_slice``.
+
+        Returns:
+            dict with scalar keys ``"r"`` and ``"z"`` (floats), or
+            ``None`` if the data are absent or invalid.
+        """
+        try:
+            mag_ax = self.ids.time_slice[time_slice].global_quantities.magnetic_axis
+            r = float(mag_ax.r)
+            z = float(mag_ax.z)
+        except Exception as exc:
+            logger.debug(f"get_magnetic_axis: could not read magnetic_axis – {exc}")
+            return None
+
+        def _valid(val):
+            return np.isfinite(val) and abs(val) < _IDS_VALID_THRESHOLD
+
+        if not (_valid(r) and _valid(z)):
+            logger.debug("get_magnetic_axis: magnetic_axis contains no valid data")
+            return None
+
+        return {"r": r, "z": z}
+
+    def get_current_centre(self, time_slice: int) -> Union[dict, None]:
+        """Return the current centroid position for a given time slice.
+
+        Reads ``global_quantities.current_centre.r/z`` and validates the
+        scalar values.
+
+        Args:
+            time_slice (int): Index into ``time_slice``.
+
+        Returns:
+            dict with scalar keys ``"r"`` and ``"z"`` (floats), or
+            ``None`` if the data are absent or invalid.
+        """
+        try:
+            cc = self.ids.time_slice[time_slice].global_quantities.current_centre
+            r = float(cc.r)
+            z = float(cc.z)
+        except Exception as exc:
+            path = f"time_slice[{time_slice}]/global_quantities/current_centre/r|z"
+            logger.debug(f"get_current_centre: could not read {path} – {exc}")
+            return None
+
+        def _valid(val):
+            return np.isfinite(val) and abs(val) < _IDS_VALID_THRESHOLD
+
+        if not (_valid(r) and _valid(z)):
+            path = f"time_slice[{time_slice}]/global_quantities/current_centre/r|z"
+            logger.debug(f"get_current_centre: {path} contains no valid data")
+            return None
+
+        return {"r": r, "z": z}
+
+    def get_scalar_annotation_quantities(self, time_slice: int) -> list:
+        """Return validated scalar global/boundary quantities for annotation display.
+
+        Reads a fixed set of scalar fields from ``global_quantities`` and
+        ``boundary``, validates each value (finite and below the IDS fill
+        value threshold), and returns
+        only those with valid data.
+
+        Args:
+            time_slice (int): Index into ``time_slice``.
+
+        Returns:
+            list of dicts, each with ``"label"`` (LaTeX str) and ``"text"``
+            (formatted value + unit str).  Empty list if nothing is valid.
+        """
+
+        def _valid(val):
+            try:
+                v = float(val)
+                return np.isfinite(v) and abs(v) < _IDS_VALID_THRESHOLD
+            except Exception:
+                return False
+
+        items = []
+        ts = self.ids.time_slice[time_slice]
+        gq = ts.global_quantities
+        bnd = ts.boundary
+
+        _specs = [
+            (lambda: float(gq.ip), lambda v: {"label": "$I_p$", "text": f"{v / 1e6:.3f} MA"}),
+            (
+                lambda: float(
+                    getattr(
+                        gq.magnetic_axis, "b_field_phi" if hasattr(gq.magnetic_axis, "b_field_phi") else "b_field_tor"
+                    )
+                ),
+                lambda v: {"label": r"$B_\phi$(axis)", "text": f"{v:.3f} T"},
+            ),
+            (lambda: float(gq.psi_axis), lambda v: {"label": r"$\psi_{\rm axis}$", "text": f"{v:.4g} Wb"}),
+            (lambda: float(gq.psi_boundary), lambda v: {"label": r"$\psi_{\rm bnd}$", "text": f"{v:.4g} Wb"}),
+            (lambda: float(gq.q_axis), lambda v: {"label": "$q_0$", "text": f"{v:.3f}"}),
+            (lambda: float(gq.q_95), lambda v: {"label": "$q_{95}$", "text": f"{v:.3f}"}),
+            (lambda: float(bnd.minor_radius), lambda v: {"label": "$a$", "text": f"{v:.3f} m"}),
+            (lambda: float(bnd.elongation), lambda v: {"label": r"$\kappa$", "text": f"{v:.3f}"}),
+            (lambda: float(bnd.triangularity), lambda v: {"label": r"$\delta$", "text": f"{v:.3f}"}),
+        ]
+        for getter, formatter in _specs:
+            try:
+                val = getter()
+                if _valid(val):
+                    items.append(formatter(val))
+            except Exception:
+                pass
+        return items
 
     def get_top_view(self, time_slice: int) -> dict:
         """
@@ -529,9 +932,9 @@ class EquilibriumCompute:
                     self.ids.time_slice[itime].global_quantities.psi_boundary * rescale_factor
                 )
 
-            b_field_tor = getattr(
-                self.ids.time_slice[itime].global_quantities.magnetic_axis, "b_field_tor", None
-            ) or getattr(self.ids.time_slice[itime].global_quantities.magnetic_axis, "b_field_phi", None)
+            b_field_tor = get_compat_attr(
+                self.ids.time_slice[itime].global_quantities.magnetic_axis, "b_field_tor", "b_field_phi"
+            )
 
             if b_field_tor.has_value:
                 if hasattr(equout.time_slice[itime].global_quantities.magnetic_axis, "b_field_tor"):
@@ -586,10 +989,14 @@ class EquilibriumCompute:
                     self.ids.time_slice[itime].profiles_1d.f_df_dpsi[i1d] * rescale_factor
                 )
 
-            for i1d in range(len(self.ids.time_slice[itime].profiles_1d.j_tor)):
-                equout.time_slice[itime].profiles_1d.j_tor[i1d] = (
-                    self.ids.time_slice[itime].profiles_1d.j_tor[i1d] * rescale_factor
-                )
+            j_tor_1d = get_compat_attr(self.ids.time_slice[itime].profiles_1d, "j_tor", "j_phi")
+            if j_tor_1d is not None:
+                if hasattr(equout.time_slice[itime].profiles_1d, "j_tor"):
+                    for i1d in range(len(j_tor_1d)):
+                        equout.time_slice[itime].profiles_1d.j_tor[i1d] = j_tor_1d[i1d] * rescale_factor
+                elif hasattr(equout.time_slice[itime].profiles_1d, "j_phi"):
+                    for i1d in range(len(j_tor_1d)):
+                        equout.time_slice[itime].profiles_1d.j_phi[i1d] = j_tor_1d[i1d] * rescale_factor
 
             for i1d in range(len(self.ids.time_slice[itime].profiles_1d.j_parallel)):
                 equout.time_slice[itime].profiles_1d.j_parallel[i1d] = (
@@ -672,11 +1079,20 @@ class EquilibriumCompute:
                             self.ids.time_slice[itime].profiles_2d[i2d].phi[ir][iz] * rescale_factor
                         )
 
-                for ir in range(len(self.ids.time_slice[itime].profiles_2d[i2d].j_tor)):
-                    for iz in range(len(self.ids.time_slice[itime].profiles_2d[i2d].j_tor[ir])):
-                        equout.time_slice[itime].profiles_2d[i2d].j_tor[ir][iz] = (
-                            self.ids.time_slice[itime].profiles_2d[i2d].j_tor[ir][iz] * rescale_factor
-                        )
+                j_tor_2d = get_compat_attr(self.ids.time_slice[itime].profiles_2d[i2d], "j_tor", "j_phi")
+                if j_tor_2d is not None:
+                    if hasattr(equout.time_slice[itime].profiles_2d[i2d], "j_tor"):
+                        for ir in range(len(j_tor_2d)):
+                            for iz in range(len(j_tor_2d[ir])):
+                                equout.time_slice[itime].profiles_2d[i2d].j_tor[ir][iz] = (
+                                    j_tor_2d[ir][iz] * rescale_factor
+                                )
+                    elif hasattr(equout.time_slice[itime].profiles_2d[i2d], "j_phi"):
+                        for ir in range(len(j_tor_2d)):
+                            for iz in range(len(j_tor_2d[ir])):
+                                equout.time_slice[itime].profiles_2d[i2d].j_phi[ir][iz] = (
+                                    j_tor_2d[ir][iz] * rescale_factor
+                                )
 
                 for ir in range(len(self.ids.time_slice[itime].profiles_2d[i2d].j_parallel)):
                     for iz in range(len(self.ids.time_slice[itime].profiles_2d[i2d].j_parallel[ir])):
@@ -711,8 +1127,8 @@ class EquilibriumCompute:
                             )
 
                 if Version(dd_version) > Version("3.5.0"):
-                    b_field_tor = getattr(self.ids.time_slice[itime].profiles_2d[i2d], "b_field_tor", None) or getattr(
-                        self.ids.time_slice[itime].profiles_2d[i2d], "b_field_phi", None
+                    b_field_tor = get_compat_attr(
+                        self.ids.time_slice[itime].profiles_2d[i2d], "b_field_tor", "b_field_phi"
                     )
                     if b_field_tor:
                         for ir in range(len(b_field_tor)):
@@ -752,14 +1168,15 @@ class EquilibriumCompute:
                                 self.ids.time_slice[itime].ggd[iggd].phi[i2].coefficients[i][j] * rescale_factor
                             )
 
-                    for i in range(len(self.ids.time_slice[itime].ggd[iggd].j_tor[i2].values)):
-                        equout.time_slice[itime].ggd[iggd].j_tor[i2].values[i] = (
-                            self.ids.time_slice[itime].ggd[iggd].j_tor[i2].values[i] * rescale_factor
-                        )
-                        for j in range(len(self.ids.time_slice[itime].ggd[iggd].j_tor[i2].values[i])):
-                            equout.time_slice[itime].ggd[iggd].j_tor[i2].coefficients[i][j] = (
-                                self.ids.time_slice[itime].ggd[iggd].j_tor[i2].coefficients[i][j] * rescale_factor
-                            )
+                    j_tor_ggd = get_compat_attr(self.ids.time_slice[itime].ggd[iggd], "j_tor", "j_phi")
+                    if j_tor_ggd is not None:
+                        equout_j_tor_ggd = get_compat_attr(equout.time_slice[itime].ggd[iggd], "j_tor", "j_phi")
+                        for i in range(len(j_tor_ggd[i2].values)):
+                            equout_j_tor_ggd[i2].values[i] = j_tor_ggd[i2].values[i] * rescale_factor
+                            for j in range(len(j_tor_ggd[i2].values[i])):
+                                equout_j_tor_ggd[i2].coefficients[i][j] = (
+                                    j_tor_ggd[i2].coefficients[i][j] * rescale_factor
+                                )
 
                     for i in range(len(self.ids.time_slice[itime].ggd[iggd].j_parallel[i2].values)):
                         equout.time_slice[itime].ggd[iggd].j_parallel[i2].values[i] = (
@@ -788,9 +1205,7 @@ class EquilibriumCompute:
                                 self.ids.time_slice[itime].ggd[iggd].b_field_z[i2].coefficients[i][j] * rescale_factor
                             )
 
-                    b_field_tor = getattr(self.ids.time_slice[itime].ggd[iggd], "b_field_tor", None) or getattr(
-                        self.ids.time_slice[itime].ggd[iggd], "b_field_phi", None
-                    )
+                    b_field_tor = get_compat_attr(self.ids.time_slice[itime].ggd[iggd], "b_field_tor", "b_field_phi")
 
                     for i in range(len(b_field_tor[i2].values)):
                         if hasattr(equout.time_slice[itime].ggd[iggd], "b_field_tor"):
@@ -998,7 +1413,7 @@ class EquilibriumCompute:
             if ids_field.has_value:
                 quantities[attribute] = eval(f"self.ids.time_slice[{time_slice}].profiles_1d.{attribute}")
             else:
-                logger.error(f"self.ids.time_slice[{time_slice}].profiles_1d.{attribute} not found")
+                logger.warning(f"self.ids.time_slice[{time_slice}].profiles_1d.{attribute} not found")
         return quantities
 
     def get_global_quantities(self, time_slice=None, attributes=None):
@@ -1040,7 +1455,7 @@ class EquilibriumCompute:
                     node = eval(f"self.ids.time_slice[{ti}].global_quantities.{attribute}")
                     if info_flag:
                         quantities[attribute]["unit"] = node.metadata.units
-                        quantities[attribute]["coordinate_unit"] = "t"
+                        quantities[attribute]["coordinate_unit"] = self.ids.time.metadata.units or "s"
 
                         quantities[attribute]["name"] = node.metadata.name
                         quantities[attribute]["coordinate_name"] = "time"
@@ -1155,6 +1570,9 @@ class EquilibriumCompute:
         name = self.ids.code.name
         if homogeneous_time == 1:
             time = self.ids.time
+        else:
+            # Extract time from time_slice array
+            time = np.array([ts.time for ts in self.ids.time_slice]) if len(self.ids.time_slice) > 0 else np.array([])
         nt = time.size
 
         data = {}
@@ -1320,8 +1738,9 @@ class EquilibriumCompute:
                     qpsi1D[i, :] = time_slice.profiles_1d.q
                 if time_slice.profiles_1d.pressure.size > 0 and press1D is not None:
                     press1D[i, :] = time_slice.profiles_1d.pressure
-                if time_slice.profiles_1d.j_tor.size > 0 and j_tor1D is not None:
-                    j_tor1D[i, :] = time_slice.profiles_1d.j_tor
+                j_tor_1d = get_compat_attr(time_slice.profiles_1d, "j_tor", "j_phi")
+                if j_tor_1d is not None and j_tor_1d.size > 0 and j_tor1D is not None:
+                    j_tor1D[i, :] = j_tor_1d
                 if time_slice.profiles_1d.r_inboard.size > 0 and rin1D is not None:
                     rin1D[i, :] = time_slice.profiles_1d.r_inboard
                 if time_slice.profiles_1d.r_outboard.size > 0 and rout1D is not None:
@@ -1370,18 +1789,19 @@ class EquilibriumCompute:
                         z2D[i, :, :] = time_slice.profiles_2d[0].z
                     if time_slice.profiles_2d[0].psi.size > 0 and psi2D is not None:
                         psi2D[i, :, :] = time_slice.profiles_2d[0].psi
-                    if time_slice.profiles_2d[0].j_tor.size > 0 and jtor2D is not None:
-                        jtor2D[i, :, :] = time_slice.profiles_2d[0].j_tor
+                    j_tor_2d = get_compat_attr(time_slice.profiles_2d[0], "j_tor", "j_phi")
+                    if j_tor_2d is not None and j_tor_2d.size > 0 and jtor2D is not None:
+                        jtor2D[i, :, :] = j_tor_2d
                     if "r" in selection and time_slice.profiles_2d[0].grid.dim1.size > 0:
                         r = time_slice.profiles_2d[0].grid.dim1
                     if "z" in selection and time_slice.profiles_2d[0].grid.dim2.size > 0:
                         z = time_slice.profiles_2d[0].grid.dim2
 
         # Initialize boundary arrays - each time slice can have different size
-        if need_boundaries and n3 > 0:
-            rb = [] if "rb" in selection else None
-            zb = [] if "zb" in selection else None
+        rb = [] if "rb" in selection else None
+        zb = [] if "zb" in selection else None
 
+        if need_boundaries:
             for i, time_slice in enumerate(self.ids.time_slice):
                 if time_slice.boundary.outline.r.size > 0 and rb is not None:
                     rb.append(time_slice.boundary.outline.r)

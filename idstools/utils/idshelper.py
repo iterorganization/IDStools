@@ -439,7 +439,7 @@ def get_available_ids_and_times(db_entry_object) -> list:
                 if homogeneous_time == imas.ids_defs.IDS_TIME_MODE_UNKNOWN:
                     time_array = []
                 if homogeneous_time == imas.ids_defs.IDS_TIME_MODE_HETEROGENEOUS:
-                    time_array = [np.NaN]
+                    time_array = [np.nan]
                 if homogeneous_time == imas.ids_defs.IDS_TIME_MODE_HOMOGENEOUS:
                     if getattr(ids_object, "time", None):
                         time_array = ids_object.time.value
@@ -447,8 +447,12 @@ def get_available_ids_and_times(db_entry_object) -> list:
                     time_array = [-np.inf]
             except Exception as e:
                 logger.debug(f"{e}")
-                time_array = []
-                logger.info(f"ERROR! IDS {_ids_name} : Reading time array fails due to following problem : {e}")
+                time_array = None
+                logger.warning(
+                    "Unable to read the time array for IDS %s: %s",
+                    _ids_name,
+                    e,
+                )
             if occurrence != 0:
                 result.append((f"{_ids_name}/{occurrence}", time_array))
             else:

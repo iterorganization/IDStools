@@ -183,16 +183,18 @@ It can also save generated figures to a specified directory or the default locat
 
       $ idsprint --uri "imas:mdsplus?user=public;pulse=122481;run=1;database=ITER;version=3#edge_profiles/ggd[:]/electrons/density[1].values" -p
 
-      $ idsprint --uri "imas:mdsplus?user=public;pulse=134174;run=117;database=ITER;version=3#core_profiles/profiles_1d(:)/electrons/temperature" -p
+   $ idsprint --uri "imas:mdsplus?user=public;pulse=134174;run=117;database=ITER;version=3#core_profiles/profiles_1d(:)/electrons/temperature" -p
 
-   .. image:: _static/images/idsprint_1.png
-      :alt: image not found
-      :align: center
+   $ idsprint --uri "imas:mdsplus?user=public;pulse=134174;run=117;database=ITER;version=3#summary/time"
 
-   .. image:: _static/images/idsprint_2.png
-      :alt: image not found
-      :align: center
+.. image:: _static/images/idsprint_1.png
+   :alt: image not found
+   :align: center
 
-   .. image:: _static/images/idsprint_3.png
-      :alt: image not found
-      :align: center
+.. image:: _static/images/idsprint_2.png
+   :alt: image not found
+   :align: center
+
+.. image:: _static/images/idsprint_3.png
+   :alt: image not found
+   :align: center

@@ -3,7 +3,7 @@
 # Execute script from root directory
 source /etc/profile.d/modules.sh
 module use /work/imas/etc/modules/all
-source ./ci-sdcc/st00-header.sh $1 $2 $3
+source ./ci-sdcc/st00-header.sh
 
 # Note Disable set -e option when using on local as it will exit the shell on error
 if [[ "$(uname -n)" == *"bamboo"* ]]; then
@@ -11,7 +11,6 @@ if [[ "$(uname -n)" == *"bamboo"* ]]; then
 fi
 
 # module unload Python-bundle-PyPI
-ENVIRONEMNT_NAME=env"$TOOLCHAIN_VERSION"_"$ACCESS_LAYER_VERSION"
 
 # Create python virtual environment and install dependencies
 rm -rf "$ENVIRONEMNT_NAME"

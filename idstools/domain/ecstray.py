@@ -21,7 +21,7 @@ class EcStrayCompute:
         # self.coreProfilesCompute = coreProfilesIds
         self.waves_compute = WavesCompute(waves_ids)
 
-    def get_resonance_layer(self, coherent_wave_index, time_slice, n_harm=None):
+    def get_resonance_layer(self, coherent_wave_index, time_slice, n_harm=None, equilibrium_time_slice=None):
         """This function calculates and returns a dictionary (Resonance Layer) containing r and z values
         corresponding to the resonance points based on the provided nHarm values, b_resonance, and b_total arrays.
 
@@ -56,11 +56,14 @@ class EcStrayCompute:
         """
         if n_harm is None:
             n_harm = [1, 2, 3, 4]
+        if equilibrium_time_slice is None:
+            equilibrium_time_slice = time_slice
+
         b_resonance = self.waves_compute.get_b_resonance(coherent_wave_index, time_slice, harmonic_frequencies=n_harm)
-        profile2d_index, b_total = self.equilibrium_compute.get_b_total(time_slice)
+        profile2d_index, b_total = self.equilibrium_compute.get_b_total(equilibrium_time_slice)
         if profile2d_index != -99:
-            r = self.equilibrium_compute.ids.time_slice[time_slice].profiles_2d[profile2d_index].grid.dim1
-            z = self.equilibrium_compute.ids.time_slice[time_slice].profiles_2d[profile2d_index].grid.dim2
+            r = self.equilibrium_compute.ids.time_slice[equilibrium_time_slice].profiles_2d[profile2d_index].grid.dim1
+            z = self.equilibrium_compute.ids.time_slice[equilibrium_time_slice].profiles_2d[profile2d_index].grid.dim2
 
         [nr, nz] = np.shape(b_total)
         b_err = 10 / nr
@@ -177,8 +180,8 @@ class EcStrayCompute:
                 ) + constants.e * b_total[ir, iz] / (2 * constants.m_e)
             except Exception as e:  # Not defined outside LCFS
                 logger.debug(f"{e}")
-                ne2d_eq[ir, iz] = -1  # np.NaN
-                omega_r[ir, iz] = -1  # np.NaN
+                ne2d_eq[ir, iz] = -1  # np.nan
+                omega_r[ir, iz] = -1  # np.nan
 
         # Find (R,Z) where omega_R = omega_EC (within the tolerance omega_err)
         [nr, nz] = np.shape(omega_r)

@@ -41,6 +41,7 @@ from idstools.utils.idshelper import (
     get_ids_values,
 )
 from idstools.utils.idslogger import setup_logger
+from idstools.utils.utility_functions import add_query_to_uri
 
 logger = setup_logger("module", stdout_level=logging.INFO)
 
@@ -108,7 +109,12 @@ Example:
         valpath = path[1 + len(idsname) :]
         paths_info.append((path, idsname, valpath.replace("(", "[").replace(")", "]").replace("/", ".")))
 
-    ids_values = get_ids_values(args.uri, paths_info, dd_update=args.dd_update, verbose=args.verbose)
+    ids_values = get_ids_values(
+        add_query_to_uri(args.uri, backend="uda", query="cache_mode=none"),
+        paths_info,
+        dd_update=args.dd_update,
+        verbose=args.verbose,
+    )
     if ids_values:
         for _path, _value in ids_values.items():
             if _value is None:

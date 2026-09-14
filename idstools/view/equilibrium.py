@@ -13,6 +13,7 @@ try:
 except ImportError:
     import imas
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D as ProxyLine
 import numpy as np
 
 from idstools.compute.equilibrium import EquilibriumCompute
@@ -40,7 +41,13 @@ class EquilibriumView(BasePlot):
         ax: plt.axes,
         time_slice: int,
         profiles2d_index: int = 0,
-        plot_rho: bool = False,
+        plot_magnetic_axis: bool = True,
+        plot_current_centre: bool = True,
+        plot_boundary_data: bool = True,
+        plot_phi: bool = False,
+        plot_annotations: bool = True,
+        plot_psi: bool = True,
+        plot_boundary_outline: bool = False,
     ):
         """
         This function plots the magnetic poloidal flux contours on a 2D Cartesian grid.
@@ -80,12 +87,22 @@ class EquilibriumView(BasePlot):
             :meth:`plotIP`
         """
         contour_lines_psi = contour_lines_rho = None
-        cartestion_grid = self.compute_obj.get2d_cartesian_grid(time_slice, profiles2d_index)
-        if cartestion_grid is not None:
-            levels = 50
+        levels = 50
+        cartestion_grid = None
+        if plot_psi or plot_phi:
+            cartestion_grid = self.compute_obj.get2d_cartesian_grid(time_slice, profiles2d_index)
+        if cartestion_grid is not None and plot_psi:
 
+            # As per IMAS data dictionary psi is stored as [R, Z] with shape (N_R, N_Z).
+            # Check this reference :
+            # https://imas-data-dictionary.readthedocs.io/en/latest/generated/identifier/poloidal_plane_coordinates_identifier.html
+
+            # For matplotlib contour as per the documentation:
+            # https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.contour.html
+            # matplotlib.contour(r, z, Zdata) expects Zdata as [rows=z, cols=r], so the shape must be (N_Z, N_R).
+            # Therefore we transpose psi before plotting.
             contour_lines_psi = ax.contour(
-                cartestion_grid["r2d"], cartestion_grid["z2d"], cartestion_grid["psi2d"], levels, cmap="summer"
+                cartestion_grid["r2d"], cartestion_grid["z2d"], cartestion_grid["psi2d"].T, levels, cmap="summer"
             )
             # ax.clabel(
             #     contour_lines_psi,
@@ -95,22 +112,340 @@ class EquilibriumView(BasePlot):
             #     # fmt="%.2e",
             #     inline_spacing=1,
             # )
-            if plot_rho:
-                rho2d = self.compute_obj.get_rho2d(time_slice)
-                if rho2d is not None:
+
+            # phi (toroidal flux) overlay
+            if plot_phi:
+                phi2d = self.compute_obj.get_phi2d(time_slice)
+                if phi2d is not None:
                     contour_lines_rho = ax.contour(
-                        cartestion_grid["r2d"], cartestion_grid["z2d"], rho2d, levels=levels, cmap="YlOrBr"
+                        cartestion_grid["r2d"], cartestion_grid["z2d"], phi2d.T, levels=levels, cmap="YlOrBr"
                     )
 
             ax.set_aspect("equal", adjustable="box")
             ax.set_xlabel("$R$ [m]")
             ax.set_ylabel("$Z$ [m]")
-            # ax.set_xlim(3.4, cartestionGrid["r2d"].max())
-            # ax.set_ylim(cartestionGrid["z2d"].min() * 0.7, cartestionGrid["z2d"].max() * 0.7)
+
+        # Get any handles already in the axes legend (e.g. from machine description).
+        _existing_legend = ax.get_legend()
+        if _existing_legend is not None:
+            _md_handles = list(_existing_legend.legend_handles)
+            _md_labels = [t.get_text() for t in _existing_legend.get_texts()]
+        else:
+            _md_handles, _md_labels = [], []
+        overlay_entries = []
+
+        if plot_magnetic_axis:
+            mag_ax = self.compute_obj.get_magnetic_axis(time_slice)
+            if mag_ax is not None:
+                (marker,) = ax.plot(
+                    mag_ax["r"],
+                    mag_ax["z"],
+                    marker="+",
+                    color="saddlebrown",
+                    markersize=6,
+                    markeredgewidth=1.4,
+                    linestyle="None",
+                    zorder=6,
+                )
+                proxy_mag = ProxyLine(
+                    [0],
+                    [0],
+                    color="saddlebrown",
+                    marker="+",
+                    markersize=6,
+                    markeredgewidth=1.4,
+                    linestyle="None",
+                    label="magnetic axis",
+                )
+                overlay_entries.append((proxy_mag, [marker]))
+
+        if plot_current_centre:
+            cc = self.compute_obj.get_current_centre(time_slice)
+            if cc is not None:
+                (marker,) = ax.plot(
+                    cc["r"],
+                    cc["z"],
+                    marker="+",
+                    color="deeppink",
+                    markersize=6,
+                    markeredgewidth=1.4,
+                    linestyle="None",
+                    zorder=6,
+                )
+                proxy_cc = ProxyLine(
+                    [0],
+                    [0],
+                    color="deeppink",
+                    marker="+",
+                    markersize=6,
+                    markeredgewidth=1.4,
+                    linestyle="None",
+                    label="current centre",
+                )
+                overlay_entries.append((proxy_cc, [marker]))
+
+        if plot_boundary_outline:
+            bd = self.compute_obj.get_boundary_data(time_slice)
+            if bd["bnd_outline"] is not None:
+                (boundary_line,) = ax.plot(
+                    bd["bnd_outline"][0],
+                    bd["bnd_outline"][1],
+                    color="royalblue",
+                    linewidth=2.0,
+                    linestyle="-",
+                    zorder=5,
+                )
+                proxy_boundary = ProxyLine(
+                    [0], [0], color="royalblue", linewidth=2.0, linestyle="-", label="boundary/outline"
+                )
+                overlay_entries.append((proxy_boundary, [boundary_line]))
+
+        if plot_boundary_data:
+            bd = self.compute_obj.get_boundary_data(time_slice)
+
+            # boundary_separatrix outline
+            for sep in bd["sep_outlines"]:
+                (sep_line,) = ax.plot(
+                    sep[0],
+                    sep[1],
+                    color="firebrick",
+                    linewidth=2.0,
+                    linestyle="--",
+                    zorder=4,
+                )
+                proxy_sep_bnd = ProxyLine(
+                    [0], [0], color="firebrick", linewidth=2.0, linestyle="--", label="separatrix"
+                )
+                overlay_entries.append((proxy_sep_bnd, [sep_line]))
+
+            # geometric axis
+            if bd["bnd_geom_axis"] is not None:
+                (gax_marker,) = ax.plot(
+                    bd["bnd_geom_axis"][0],
+                    bd["bnd_geom_axis"][1],
+                    marker="x",
+                    color="darkcyan",
+                    markersize=6,
+                    markeredgewidth=1.4,
+                    linestyle="None",
+                    zorder=6,
+                )
+                proxy_gax = ProxyLine(
+                    [0],
+                    [0],
+                    color="darkcyan",
+                    marker="x",
+                    markersize=6,
+                    markeredgewidth=1.4,
+                    linestyle="None",
+                    label="Geometric axis",
+                )
+                overlay_entries.append((proxy_gax, [gax_marker]))
+
+            # x-points  (boundary_separatrix)
+            point_marker_size = 7
+            point_marker_edgewidth = 2.0
+            point_label_fontsize = 8
+
+            _xp_groups = [
+                (bd["sep_xpoints"], "red", "x_point"),
+            ]
+            for xp_list, xp_color, xp_label in _xp_groups:
+                _xp_artists = []
+                for xp_idx, (xr, xz) in enumerate(xp_list):
+                    (mk,) = ax.plot(
+                        xr,
+                        xz,
+                        marker="x",
+                        color=xp_color,
+                        markersize=point_marker_size,
+                        markeredgewidth=point_marker_edgewidth,
+                        linestyle="None",
+                        zorder=7,
+                    )
+                    ann = ax.annotate(
+                        f"X{xp_idx}",
+                        xy=(xr, xz),
+                        xytext=(-6, 6),
+                        textcoords="offset points",
+                        fontsize=point_label_fontsize,
+                        ha="right",
+                        color=xp_color,
+                        fontweight="bold",
+                        zorder=8,
+                    )
+                    _xp_artists.append(mk)
+                    _xp_artists.append(ann)
+                if _xp_artists:
+                    proxy_xp = ProxyLine(
+                        [0],
+                        [0],
+                        color=xp_color,
+                        marker="x",
+                        markersize=point_marker_size,
+                        markeredgewidth=point_marker_edgewidth,
+                        linestyle="None",
+                        label=xp_label,
+                    )
+                    overlay_entries.append((proxy_xp, _xp_artists))
+
+            # strike-points  (boundary_separatrix)
+            _sp_groups = [
+                (bd["sep_strikepoints"], "red", "strike_point"),
+            ]
+            for sp_list, sp_color, sp_label in _sp_groups:
+                _sp_artists = []
+                for sp_idx, (sr, sz) in enumerate(sp_list):
+                    (mk,) = ax.plot(
+                        sr,
+                        sz,
+                        marker="+",
+                        color=sp_color,
+                        markersize=point_marker_size,
+                        markeredgewidth=point_marker_edgewidth,
+                        linestyle="None",
+                        zorder=7,
+                    )
+                    ann = ax.annotate(
+                        f"S{sp_idx}",
+                        xy=(sr, sz),
+                        xytext=(-6, 6),
+                        textcoords="offset points",
+                        fontsize=point_label_fontsize,
+                        ha="right",
+                        color=sp_color,
+                        fontweight="bold",
+                        zorder=8,
+                    )
+                    _sp_artists.append(mk)
+                    _sp_artists.append(ann)
+                if _sp_artists:
+                    proxy_sp = ProxyLine(
+                        [0],
+                        [0],
+                        color=sp_color,
+                        marker="+",
+                        markersize=point_marker_size,
+                        markeredgewidth=point_marker_edgewidth,
+                        linestyle="None",
+                        label=sp_label,
+                    )
+                    overlay_entries.append((proxy_sp, _sp_artists))
+
+        if plot_annotations:
+            self.view_global_quantities_annotation(ax, time_slice)
+
+        self._configure_interactive_legend(ax, _md_handles, _md_labels, overlay_entries)
         return contour_lines_psi, contour_lines_rho
+
+    @staticmethod
+    def _configure_interactive_legend(ax, md_handles, md_labels, overlay_entries):
+        """Build a clickable legend, replacing this axes' previous pick handler."""
+        canvas = ax.figure.canvas
+        previous_cid = getattr(ax, "_idstools_legend_cid", None)
+        if previous_cid is not None:
+            canvas.mpl_disconnect(previous_cid)
+            ax._idstools_legend_cid = None
+        if not overlay_entries and not md_handles:
+            return
+
+        overlay_proxies = [proxy for proxy, _ in overlay_entries]
+
+        all_handles = md_handles + overlay_proxies
+        all_labels = md_labels + [p.get_label() for p in overlay_proxies]
+
+        legend = ax.legend(
+            handles=all_handles,
+            labels=all_labels,
+            loc="upper left",
+            bbox_to_anchor=(1.15, 1),
+            fancybox=True,
+            frameon=False,
+            framealpha=1.0,
+            facecolor="white",
+            fontsize=10,
+            labelspacing=1.2,
+        )
+        legend.set_zorder(1000)
+        for text in legend.get_texts():
+            text.set_ha("left")
+
+        leg_map = {}
+        legend_texts = legend.get_texts()
+        n_md = len(md_handles)
+        for i, orig_artist in enumerate(md_handles):
+            leg_h = legend.legend_handles[i]
+            leg_h.set_picker(8)
+            leg_map[leg_h] = [orig_artist]
+            legend_texts[i].set_picker(True)
+            leg_map[legend_texts[i]] = [orig_artist]
+
+        for i, (_, artists) in enumerate(overlay_entries):
+            leg_h = legend.legend_handles[n_md + i]
+            leg_text = legend_texts[n_md + i]
+            leg_h.set_picker(8)
+            leg_map[leg_h] = artists
+            leg_text.set_picker(True)
+            leg_map[leg_text] = artists
+            if artists and not artists[0].get_visible():
+                leg_h.set_alpha(0.3)
+                leg_text.set_alpha(0.3)
+
+        def on_legend_click(event):
+            legline = event.artist
+            if legline not in leg_map:
+                return
+            artists = leg_map[legline]
+            if not artists:
+                return
+            visible = not artists[0].get_visible()
+            for a in artists:
+                a.set_visible(visible)
+            legline.set_alpha(1.0 if visible else 0.3)
+            if legline in legend.legend_handles:
+                leg_index = legend.legend_handles.index(legline)
+                legend_texts[leg_index].set_alpha(1.0 if visible else 0.3)
+            elif legline in legend_texts:
+                leg_index = legend_texts.index(legline)
+                legend.legend_handles[leg_index].set_alpha(1.0 if visible else 0.3)
+            ax.figure.canvas.draw_idle()
+
+        ax._idstools_legend_cid = canvas.mpl_connect("pick_event", on_legend_click)
 
     def view_pulse_info(self, ax: plt.axes, title: str, hostdir: str, shot: int, run: int, t: float):
         self.database_info(ax, title, hostdir, shot, run, t)
+
+    def view_global_quantities_annotation(self, ax: plt.axes, time_slice: int):
+        """Draw a scalar global-quantities text box below the axes.
+
+        Reads validated scalars via
+        :meth:`idstools.compute.equilibrium.EquilibriumCompute.get_scalar_annotation_quantities`
+        and renders them as a styled text box just below the axes.
+
+        Args:
+            ax: matplotlib axes.
+            time_slice (int): time-slice index.
+
+        Returns:
+            matplotlib ``Text`` artist, or ``None`` if no valid data.
+        """
+        items = self.compute_obj.get_scalar_annotation_quantities(time_slice)
+        if not items:
+            return None
+
+        textstr = "\n".join(f"{d['label']} = {d['text']}" for d in items)
+        txt = ax.text(
+            1.15,
+            0.0,
+            textstr,
+            transform=ax.transAxes,
+            fontsize=9,
+            horizontalalignment="left",
+            verticalalignment="bottom",
+            clip_on=False,
+            bbox=dict(boxstyle="round,pad=0.5", facecolor="white", alpha=1.0, edgecolor="none"),
+        )
+        return txt
 
     def plot_ip(self, ax):
         """
@@ -152,9 +487,9 @@ class EquilibriumView(BasePlot):
         data = self.compute_obj.get_flux_surfaces(time_slice)
         r2d = data["r2d"]
         z2d = data["z2d"]
-        # rho2d = data["rho2d"]
+        # phi2d = data["phi2d"]
         psi2d = data["psi2d"]
-        cntr = ax.contour(r2d, z2d, psi2d, 50, cmap="summer")
+        cntr = ax.contour(r2d, z2d, psi2d.T, 50, cmap="summer")
         cbar = plt.colorbar(cntr, ax=ax, pad=0.08, fraction=0.03)
         cbar.set_label(r"$\psi$ [Wb]")
         # if len(rho2d)>0:
@@ -207,7 +542,7 @@ class EquilibriumView(BasePlot):
             ax.xaxis.tick_top()
             ax.xaxis.set_label_position("top")
 
-            contour_lines = ax.contour(r2d, z2d, psi2d, levels=50, cmap="summer")  # ,label=r'$\Psi_{pol}$')
+            contour_lines = ax.contour(r2d, z2d, psi2d.T, levels=50, cmap="summer")  # ,label=r'$\Psi_{pol}$')
             cbar = plt.colorbar(contour_lines, ax=ax, pad=0.08, fraction=0.03)
             cbar.set_label(r"$\psi$ [Wb]")
             ax.set_xlim(r2d.min(), r2d.max())
@@ -247,13 +582,12 @@ class EquilibriumView(BasePlot):
 
                         coordinate_normalized = (psi - psi_first) / (psi_last - psi_first)
                 axes_list[counter].plot(
-                    coordinate_normalized, copied_field, label=f"{field.metadata.name} ({field.metadata.units})"
+                    coordinate_normalized, copied_field, label=f"{field.metadata.name} [{field.metadata.units}]"
                 )
                 if coordinate.metadata.name == "psi":
-                    axes_list[counter].set_xlabel(f"{coordinate.metadata.name} (normalized)")
+                    axes_list[counter].set_xlabel(f"{coordinate.metadata.name}_norm [1]")
                 else:
-                    axes_list[counter].set_xlabel(f"{coordinate.metadata.name} ({coordinate.metadata.units})")
-                axes_list[counter].set_ylabel(name)
+                    axes_list[counter].set_xlabel(f"{coordinate.metadata.name} [{coordinate.metadata.units}]")
                 axes_list[counter].legend(loc="upper right")
                 counter = counter + 1
 
@@ -267,11 +601,10 @@ class EquilibriumView(BasePlot):
                 field["node"][field["node"] == imas.ids_defs.EMPTY_FLOAT] = np.nan
             if field["has_value"]:
                 if len(field["node"]) < 5:
-                    axes_list[counter].scatter(field["coordinate"], field["node"], label=f"{name} ({field['unit']})")
+                    axes_list[counter].scatter(field["coordinate"], field["node"], label=f"{name} [{field['unit']}]")
                 else:
-                    axes_list[counter].plot(field["coordinate"], field["node"], label=f"{name} ({field['unit']})")
-                axes_list[counter].set_xlabel(f"{field['coordinate_name']} ({field['coordinate_unit']})")
-                axes_list[counter].set_ylabel(name)
+                    axes_list[counter].plot(field["coordinate"], field["node"], label=f"{name} [{field['unit']}]")
+                axes_list[counter].set_xlabel(f"{field['coordinate_name']} [{field['coordinate_unit']}]")
                 self.view_time_line(axes_list[counter], time_slice)
                 axes_list[counter].legend(loc="upper right")
                 counter = counter + 1
@@ -424,7 +757,9 @@ class EquilibriumView(BasePlot):
             logger.warning(f"Equilibrium1 {name}: No valid r or jtor data available")
 
         # Set ylim with check for identical values to avoid matplotlib warning
-        if abs(y_max - y_min) < 1e-10:
+        if not np.isfinite(y_min) or not np.isfinite(y_max):
+            y_min, y_max = -1.0, 1.0
+        elif abs(y_max - y_min) < 1e-10:
             # If y_min and y_max are essentially equal, create a small range around the value
             if abs(y_min) < 1e-10:
                 # If both are near zero, use a default range
@@ -619,14 +954,16 @@ class EquilibriumView(BasePlot):
         line31.set_xdata(time)
         line31.set_ydata(ip / 1e6)
         xlims = np.array([min(time), max(time)])
-        ylims = np.array([min(ip), max(ip)]) / 1e6
+        ip_valid = ip[np.isfinite(ip)]
+        ylims = np.array([ip_valid.min(), ip_valid.max()]) / 1e6 if ip_valid.size > 0 else np.array([-1.0, 1.0])
         if data2 is not None:
             line32.set_xdata(timeE)
             line32.set_ydata(ipE / 1e6)
+            ipE_valid = ipE[np.isfinite(ipE)]
             xlims[0] = np.minimum(xlims[0], np.min(timeE))
-            ylims[0] = np.minimum(ylims[0], np.min(ipE / 1e6))
+            ylims[0] = np.minimum(ylims[0], np.min(ipE_valid / 1e6)) if ipE_valid.size > 0 else ylims[0]
             xlims[1] = np.maximum(xlims[1], np.max(timeE))
-            ylims[1] = np.maximum(ylims[1], np.max(ipE / 1e6))
+            ylims[1] = np.maximum(ylims[1], np.max(ipE_valid / 1e6)) if ipE_valid.size > 0 else ylims[1]
         dy = ylims[1] - ylims[0]
         if dy > 0:
             ylims[0] = ylims[0] - 0.01 * dy

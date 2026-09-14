@@ -1,9 +1,7 @@
 #!/bin/bash
 # Bamboo CI script to test IDS tools on different toolchains
 # Execute script from root directory
-source ./ci-sdcc/st00-header.sh $1 $2 $3
-
-ENVIRONEMNT_NAME=env"$TOOLCHAIN_VERSION"_"$ACCESS_LAYER_VERSION"
+source ./ci-sdcc/st00-header.sh
 
 python -m venv "$ENVIRONEMNT_NAME"
 
@@ -42,7 +40,7 @@ echo "====================================================================="
 echo ""
 echo ""
 echo "====================================================================="
-echo "Testing analysis scripts  with URI $CORE_MODULE_VERSION and $PYTHON_VERSION"
+echo "Testing analysis scripts with $PYTHON_VERSION"
 echo "====================================================================="
 source ./tests/st03_test_analysis_scripts_with_uri.sh "$LOG_DIR" "$DB_DIR"
 errstatus=$?
@@ -54,7 +52,7 @@ fi
 echo ""
 echo ""
 echo "====================================================================="
-echo "Testing ids manipulation scripts with $CORE_MODULE_VERSION and $PYTHON_VERSION"
+echo "Testing ids manipulation scripts with $PYTHON_VERSION"
 echo "====================================================================="
 source ./tests/st01_test_ids_scripts_with_uri.sh "$LOG_DIR" "$DB_DIR"
 errstatus=$?
@@ -67,7 +65,7 @@ fi
 echo ""
 echo ""
 echo "====================================================================="
-echo "Testing db scripts with $CORE_MODULE_VERSION and $PYTHON_VERSION"
+echo "Testing db scripts with $PYTHON_VERSION"
 echo "====================================================================="
 source ./tests/st02_test_db_scripts.sh "$LOG_DIR" "$DB_DIR"
 errstatus=$?
@@ -80,7 +78,7 @@ fi
 echo ""
 echo ""
 echo "====================================================================="
-echo "Testing scenario scripts with $CORE_MODULE_VERSION and $PYTHON_VERSION"
+echo "Testing scenario scripts with $PYTHON_VERSION"
 echo "====================================================================="
 source ./tests/st04_test_scenario_scripts.sh "$LOG_DIR" "$DB_DIR"
 errstatus=$?
@@ -92,7 +90,7 @@ fi
 echo ""
 echo ""
 echo "====================================================================="
-echo "Run pytest for functions testing with $CORE_MODULE_VERSION and $PYTHON_VERSION"
+echo "Run pytest for functions testing with $PYTHON_VERSION"
 echo "====================================================================="
 pip install pytest
 python -m pytest --junit-xml="$LOG_DIR"/test_report.xml idstools/test

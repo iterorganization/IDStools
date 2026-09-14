@@ -16,9 +16,9 @@ from idstools.compute.common import get_nearest_time
 from idstools.database import DBMaster
 from idstools.utils.clihelper import (
     dbentry_parser,
+    show_plot,
     get_database_path,
     get_file_name,
-    get_title,
     rcparam_parser,
 )
 from idstools.utils.idshelper import get_available_ids_and_occurrences
@@ -54,7 +54,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--save",
-        help="Save figure at default location",
+        help=(
+            "Save the plot to a file instead of opening a window. "
+            "If no plot window is available, it is saved automatically."
+        ),
         action="store_true",
     )
     parser.add_argument(
@@ -205,11 +208,10 @@ if __name__ == "__main__":
             plotequilibrium = EquilibriumView(ids_equilibrium)
             plotequilibrium.plotequilibrium(ax5, time_slice)
 
-    title = get_title(args, "Scenario")
     if not args.no_profiles:
-        title = get_title(args, "Scenario", time_value)
+        title = get_database_path(args, time_value=time_value)
     else:
-        title = get_title(args, "Scenario")
+        title = get_database_path(args)
     if args.info:
         title += (
             f"\nprovider={ids_summary.ids_properties.provider}, "
@@ -218,23 +220,11 @@ if __name__ == "__main__":
             f"access_layer={ids_summary.ids_properties.version_put.access_layer}"
         )
 
-    if not args.no_profiles:
-        canvas.set_text(text=f"{get_database_path(args, time_value=time_value)}")
-    else:
-        canvas.set_text(text=f"{get_database_path(args)}")
     canvas.set_sup_title(title)
     canvas.get_current_fig_manager().set_window_title(os.path.basename(__file__))
     canvas.fig.subplots_adjust(top=0.914, bottom=0.099, left=0.042, right=0.9, hspace=0.113, wspace=0.43)
 
-    if args.save:
-        if not args.no_profiles:
-            fname = get_file_name(args, os.path.basename(__file__) + "_summary", time_value)
-        else:
-            fname = get_file_name(args, os.path.basename(__file__) + "_Scenario_shot")
-        if args.directory:
-            if not os.path.exists(args.directory):
-                os.makedirs(args.directory)
-            fname = os.path.join(args.directory, fname)
-        canvas.save(fname)
+    if not args.no_profiles:
+        show_plot(canvas, args, os.path.basename(__file__) + "_summary", time_value)
     else:
-        canvas.show()
+        show_plot(canvas, args, os.path.basename(__file__) + "_Scenario_shot")

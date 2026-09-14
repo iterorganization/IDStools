@@ -5,6 +5,8 @@ This module provides compute functions and classes for distributions ids data
 
 import logging
 
+from idstools.compute.common import get_compat_attr
+
 logger = logging.getLogger("module")
 
 
@@ -60,9 +62,9 @@ class DistributionsCompute:
             distributions_data["rho_tor_norm"] = None
             if len(self.ids.distribution[idistrib].global_quantities[time_slice].collisions.ion) > 0:
                 distributions_data["is_active"] = 1
-                current_tor = getattr(
-                    self.ids.distribution[idistrib].global_quantities[time_slice], "current_tor", None
-                ) or getattr(self.ids.distribution[idistrib].global_quantities[time_slice], "current_phi", None)
+                current_tor = get_compat_attr(
+                    self.ids.distribution[idistrib].global_quantities[time_slice], "current_tor", "current_phi"
+                )
 
                 if current_tor == -9e40:
                     distributions_data["cur_calc"] = 0
@@ -176,9 +178,9 @@ class DistributionsCompute:
                 nions = len(self.ids.distribution[idistrib].global_quantities[time_slice].collisions.ion)
                 for itime in range(ntime):
                     if self.cur_calc == 1:
-                        current_tor = getattr(
-                            self.ids.distribution[idistrib].global_quantities[time_slice], "current_tor", None
-                        ) or getattr(self.ids.distribution[idistrib].global_quantities[time_slice], "current_phi", None)
+                        current_tor = get_compat_attr(
+                            self.ids.distribution[idistrib].global_quantities[time_slice], "current_tor", "current_phi"
+                        )
                         profiles["single_current_waveform"][idistrib][itime] = current_tor
                     profiles["single_electron_power_waveform"][idistrib][itime] = (
                         self.ids.distribution[idistrib].global_quantities[itime].collisions.electrons.power_thermal
@@ -218,9 +220,9 @@ class DistributionsCompute:
                 profiles["single_ion_power_density_profile"][idistrib] = [0] * self.nrho
                 profiles["single_total_power_density_profile"][idistrib] = [0] * self.nrho
                 if self.cur_calc == 1:
-                    current_tor = getattr(
-                        self.ids.distribution[idistrib].profiles_1d[time_slice], "current_tor", None
-                    ) or getattr(self.ids.distribution[idistrib].profiles_1d[time_slice], "current_phi", None)
+                    current_tor = get_compat_attr(
+                        self.ids.distribution[idistrib].profiles_1d[time_slice], "current_tor", "current_phi"
+                    )
                     profiles["single_current_density_profile"][idistrib] = current_tor
                 profiles["single_electron_power_density_profile"][idistrib] = (
                     self.ids.distribution[idistrib].profiles_1d[time_slice].collisions.electrons.power_thermal

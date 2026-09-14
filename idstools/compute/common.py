@@ -4,11 +4,37 @@ This is a common module which has mathematical or physics functions
 """
 
 import logging
-from typing import Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 
 logger = logging.getLogger("module")
+
+
+def get_compat_attr(node: Any, *names: str) -> Optional[Any]:
+    """
+    Return the first attribute among `names` that exists on `node`.
+
+    This is a Data Dictionary version compatibility helper: some quantities were
+    renamed between DD3 and DD4 (e.g. ``j_tor`` -> ``j_phi``). Passing both names,
+    in preferred order, returns whichever one is actually present on the IDS node.
+
+    Args:
+        node (Any): The IDS node (e.g. a `profiles_1d`, `profiles_2d[i]` or `ggd[i]`
+            structure) to look up the attribute on.
+        *names (str): One or more candidate attribute names, checked in order.
+
+    Returns:
+        Optional[Any]: The value of the first attribute found, or None if none of
+            `names` exist on `node`.
+
+    Example:
+        >>> j_tor = get_compat_attr(time_slice.profiles_1d, "j_tor", "j_phi")
+    """
+    for name in names:
+        if hasattr(node, name):
+            return getattr(node, name)
+    return None
 
 
 def find_nearest(a, a0):

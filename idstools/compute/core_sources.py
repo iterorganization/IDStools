@@ -11,6 +11,8 @@ from typing import Dict, Union
 
 import numpy as np
 
+from idstools.compute.common import get_compat_attr
+
 logger = logging.getLogger("module")
 
 
@@ -365,8 +367,8 @@ class CoreSourcesCompute:
         # single_power_waveform = dict()  # waveform
         # single_particles_waveform = dict()  # waveform
         time_length = len(self.ids.time)
-        total_power_waveform = np.zeros(time_length)
-        total_particles_waveform = np.zeros(time_length)
+        total_ion_power_waveform = np.zeros(time_length)
+        total_ion_particles_waveform = np.zeros(time_length)
         single_power_waveform = {}
         single_particles_waveform = {}
         dict_single_and_total_electrons_waveforms = self.get_single_and_total_electrons_waveforms(time_slice)
@@ -398,16 +400,14 @@ class CoreSourcesCompute:
                     if total_ion_power < 0:
                         total_ion_power = 0.0
 
-                    total_power_waveform[time_index] = (
-                        total_electron_power_waveform[time_index] + electrons_power + total_ion_power
-                    )
-                    total_particles_waveform[time_index] = (
-                        total_electron_particles_waveform[time_index] + electrons_particles
-                    ) + total_ion_particles
+                    total_ion_power_waveform[time_index] += total_ion_power
+                    total_ion_particles_waveform[time_index] += total_ion_particles
                     single_power_waveform[source_index].append(electrons_power + total_ion_power)
                     single_particles_waveform[source_index].append(electrons_particles + total_ion_particles)
                 single_power_waveform[source_index] = np.array(single_power_waveform[source_index])
                 single_particles_waveform[source_index] = np.array(single_particles_waveform[source_index])
+        total_power_waveform = total_electron_power_waveform + total_ion_power_waveform
+        total_particles_waveform = total_electron_particles_waveform + total_ion_particles_waveform
         return {
             "total_power_waveform": total_power_waveform,
             "total_particles_waveform": total_particles_waveform,
@@ -558,9 +558,9 @@ class CoreSourcesCompute:
                     current_parallel = self.ids.source[source_index].global_quantities[time_index].current_parallel
                     if current_parallel < -1.0e40:
                         current_parallel = 0.0
-                    torque_tor = getattr(
-                        self.ids.source[source_index].global_quantities[time_index], "torque_tor", None
-                    ) or getattr(self.ids.source[source_index].global_quantities[time_index], "torque_phi", None)
+                    torque_tor = get_compat_attr(
+                        self.ids.source[source_index].global_quantities[time_index], "torque_tor", "torque_phi"
+                    )
 
                     if torque_tor < 0:
                         torque_tor = 0.0

@@ -10,16 +10,20 @@ try:
 except ImportError:
     import imas
 import numpy as np
+
+# PlotCanvas configures a --rc backend before Matplotlib is imported.
+from idstools.view.common import PROVENANCE_TITLE_STYLE, PlotCanvas
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Slider
 from rich_argparse import RichHelpFormatter
 
 from idstools.compute.common import get_nearest_time
 from idstools.utils.clihelper import (
+    show_plot,
     rcparam_parser,
 )
 from idstools.utils.idslogger import setup_logger
-from idstools.view.common import PlotCanvas
+from idstools.utils.utility_functions import add_query_to_uri
 from idstools.view.equilibrium import EquilibriumView
 from idstools.view.wall import WallView
 
@@ -57,7 +61,10 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--save",
-        help="Save figure at default location",
+        help=(
+            "Save the plot to a file instead of opening a window. "
+            "If no plot window is available, it is saved automatically."
+        ),
         action="store_true",
     )
     parser.add_argument(
@@ -67,6 +74,11 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    def entry_title(uri, time_value):
+        if args.no_provenance:
+            return ""
+        return f"{uri}\n#time:{time_value:.2f}"
+
     log_level = getattr(logging, args.log_level)
     logger = setup_logger("module", stdout_level=log_level)
     equilibrium1 = None
@@ -75,7 +87,10 @@ if __name__ == "__main__":
     wall2 = None
 
     if len(args.uri) >= 1:
-        connection1 = imas.DBEntry(args.uri[0], "r")
+        connection1 = imas.DBEntry(
+            add_query_to_uri(args.uri[0], backend="uda", query="cache_mode=none"),
+            "r",
+        )
         if args.dd_update:
             equilibrium1 = connection1.get("equilibrium", autoconvert=False)
             equilibrium1 = imas.convert_ids(equilibrium1, connection1.factory.version)
@@ -99,7 +114,10 @@ if __name__ == "__main__":
             logger.critical("----> Could not open first data entry. Aborted.")
             exit(1)
     if len(args.uri) == 2:
-        connection2 = imas.DBEntry(args.uri[1], "r")
+        connection2 = imas.DBEntry(
+            add_query_to_uri(args.uri[1], backend="uda", query="cache_mode=none"),
+            "r",
+        )
         if args.dd_update:
             equilibrium2 = connection2.get("equilibrium", autoconvert=False)
             equilibrium2 = imas.convert_ids(equilibrium2, connection2.factory.version)
@@ -126,7 +144,7 @@ if __name__ == "__main__":
     canvas = PlotCanvas(1, 4)
     canvas.update_style(args.rc)
 
-    canvas.fig.subplots_adjust(top=0.90, bottom=0.12, left=0.044, right=0.946, hspace=0.216, wspace=0.240)
+    canvas.fig.subplots_adjust(top=0.90, bottom=0.16, left=0.044, right=0.946, hspace=0.216, wspace=0.240)
 
     ax1 = canvas.add_axes(title="", xlabel="", row=0, col=0)
     ax2 = canvas.add_axes(title="", xlabel="", row=0, col=1)
@@ -137,7 +155,7 @@ if __name__ == "__main__":
 
     current_time_slice1 = [time_slice1]
 
-    ax_slider = canvas.fig.add_axes([0.15, 0.02, 0.65, 0.03])
+    ax_slider = canvas.fig.add_axes((0.15, 0.055, 0.65, 0.025))
 
     time_slider = Slider(
         ax_slider,
@@ -153,7 +171,7 @@ if __name__ == "__main__":
 
     time_text = canvas.fig.text(
         0.82,
-        0.02,
+        0.055,
         f"Index: {time_slice1}  |  Time: {time_array1[time_slice1]:.2f} s",
         ha="left",
         va="bottom",
@@ -212,34 +230,35 @@ if __name__ == "__main__":
             text_artists["title"] = None
 
         if len(args.uri) == 2:
-            y = 0.99
             text_artists["text1"] = canvas.fig.text(
                 0.5,
-                y,
-                args.uri[0] + f"(time {time_val1:.2f})",
+                0.985,
+                entry_title(args.uri[0], time_val1),
                 ha="center",
                 va="top",
                 color="tab:green",
                 transform=canvas.fig.transFigure,
+                **PROVENANCE_TITLE_STYLE,
             )
             text_artists["text2"] = canvas.fig.text(
                 0.5,
-                y - 0.03,
-                args.uri[1] + f"(time {time_val2:.2f})",
+                0.94,
+                entry_title(args.uri[1], time_val2),
                 ha="center",
                 va="top",
                 color="tab:blue",
                 transform=canvas.fig.transFigure,
+                **PROVENANCE_TITLE_STYLE,
             )
         else:
             text_artists["title"] = canvas.fig.text(
                 0.5,
-                0.99,
-                f"{args.uri[0]} time {time_val1:.2f}",
+                0.985,
+                entry_title(args.uri[0], time_val1),
                 ha="center",
                 va="top",
-                fontsize=12,
                 transform=canvas.fig.transFigure,
+                **PROVENANCE_TITLE_STYLE,
             )
 
         canvas.fig.canvas.draw()
@@ -362,44 +381,37 @@ if __name__ == "__main__":
 
     # Set initial title using the text_artists dictionary to avoid overdrawing
     if len(args.uri) == 2:
-        y = 0.99
         text_artists["text1"] = canvas.fig.text(
             0.5,
-            y,
-            args.uri[0] + f"(time {time_value1:.2f})",
+            0.985,
+            entry_title(args.uri[0], time_value1),
             ha="center",
             va="top",
             color="tab:green",
             transform=canvas.fig.transFigure,
+            **PROVENANCE_TITLE_STYLE,
         )
         text_artists["text2"] = canvas.fig.text(
             0.5,
-            y - 0.03,
-            args.uri[1] + f"(time {time_value2:.2f})",
+            0.94,
+            entry_title(args.uri[1], time_value2),
             ha="center",
             va="top",
             color="tab:blue",
             transform=canvas.fig.transFigure,
+            **PROVENANCE_TITLE_STYLE,
         )
     else:
         text_artists["title"] = canvas.fig.text(
             0.5,
-            0.99,
-            f"{args.uri[0]} time {time_value1:.2f}",
+            0.985,
+            entry_title(args.uri[0], time_value1),
             ha="center",
             va="top",
-            fontsize=12,
             transform=canvas.fig.transFigure,
+            **PROVENANCE_TITLE_STYLE,
         )
 
     canvas.get_current_fig_manager().set_window_title(os.path.basename(__file__))
 
-    if args.save:
-        fname = f"plotequicomp_time_{time_value1}.png"
-        if args.directory:
-            if not os.path.exists(args.directory):
-                os.makedirs(args.directory)
-            fname = os.path.join(args.directory, fname)
-        canvas.save(fname)
-    else:
-        canvas.show()
+    show_plot(canvas, args, fname=f"plotequicomp_time_{time_value1}.png")

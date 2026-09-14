@@ -19,7 +19,7 @@ getIMASCoreModuleName() {
         DD_VERSION="$3"
     fi
     #Semantic versioning
-    IMASVERSIONSLIST=$(module -t avail IMAS-AL-Core/ 2>&1 | grep -E "^IMAS-AL-Core/$ACCESS_LAYER_VERSION\.[0-9]+\.[0-9]+-$TOOLCHAIN_VERSION")
+    IMASVERSIONSLIST=$(module -t avail IMAS-Core/ 2>&1 | grep -E "^IMAS-Core/$ACCESS_LAYER_VERSION\.[0-9]+\.[0-9]+-$TOOLCHAIN_VERSION")
     
     if [[ $TOOLCHAIN_VERSION == *"intel"* ]]; then
         CORE_MODULE_VERSION=$(echo "$IMASVERSIONSLIST" | grep "intel" | sort -rV | head -n 1)

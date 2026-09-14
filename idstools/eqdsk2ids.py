@@ -442,6 +442,9 @@ def map__GEQDSK_to_ids(geqdsk, eq):
     eq.time_slice[0].global_quantities.ip = gdsk["CURRENT"] * coef["sigma_Ip_eff"]
     eq.time_slice[0].global_quantities.magnetic_axis.r = gdsk["RMAXIS"]
     eq.time_slice[0].global_quantities.magnetic_axis.z = gdsk["ZMAXIS"]
+    eq.time_slice[0].global_quantities.magnetic_axis.b_field_phi = (
+        gdsk["FPOL"][0] * coef["sigma_B0_eff"] / gdsk["RMAXIS"]
+    )
     eq.time_slice[0].global_quantities.psi_axis = gdsk["SIMAG"] * coef["fact_psi"]
     eq.time_slice[0].global_quantities.psi_boundary = gdsk["SIBRY"] * coef["fact_psi"]
 
@@ -513,6 +516,25 @@ def map__GEQDSK_to_ids(geqdsk, eq):
         psi = eq.time_slice[0].profiles_2d[0].psi[:, j]
         bz = np.gradient(psi, dim1, edge_order=2) / dim1[:]
         eq.time_slice[0].profiles_2d[0].b_field_z[:, j] = bz[:] * fact * -1.0
+
+    # Bphi computation
+    eq.time_slice[0].profiles_2d[0].b_field_phi.resize(nw, nh)
+    psi_1d = np.array(eq.time_slice[0].profiles_1d.psi)
+    f_1d = np.array(eq.time_slice[0].profiles_1d.f)
+    psi_2d = np.array(eq.time_slice[0].profiles_2d[0].psi)
+    r_1d = np.array(eq.time_slice[0].profiles_2d[0].grid.dim1)
+    if psi_1d[0] < psi_1d[-1]:
+
+        def f_of_psi(p):
+            return np.interp(p, psi_1d, f_1d, right=f_1d[-1])
+
+    else:
+
+        def f_of_psi(p):
+            return np.interp(p, psi_1d[::-1], f_1d[::-1], right=f_1d[-1])
+
+    for i in range(nw):
+        eq.time_slice[0].profiles_2d[0].b_field_phi[i, :] = f_of_psi(psi_2d[i, :]) / r_1d[i]
 
     logger.debug("IDS/equilibrium: \n%s", pformat(eq, indent=2, sort_dicts=False))
 

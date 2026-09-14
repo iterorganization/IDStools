@@ -73,7 +73,7 @@ This cheat sheet provides quick reference of commonly used commands in IDStools.
 |                            |                                                                                                                              |
 |                            |    $ plotequilibrium --uri "imas:mdsplus?user=public;pulse=134173;run=2326;database=TEST;version=3"                          |
 |                            |    -md "imas:mdsplus?user=public;pulse=111001;run=103;database=ITER_MD;version=3#pf_active"                                  |
-|                            |    "imas:hdf5?user=public;pulse=116000;run=4;database=ITER_MD;version=3#wall" --rho                                          |
+|                            |    "imas:hdf5?user=public;pulse=116000;run=4;database=ITER_MD;version=3#wall" --phi                                          |
 |                            |                                                                                                                              |
 +----------------------------+------------------------------------------------------------------------------------------------------------------------------+
 | *plotequicomp*             | Shows plasma equilibrium and quantities related with it                                                                      |

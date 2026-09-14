@@ -1,6 +1,7 @@
 import logging
 
 import numpy as np
+from matplotlib.collections import PolyCollection
 
 from idstools.compute.edge_profiles import EdgeProfilesCompute
 
@@ -109,8 +110,8 @@ class EdgeProfilesView:
 
     def view_electrons_density(self, ax, time_slice, show_separatrix=False):
         """
-        The function `view_electrons_density` plots the electron density on a rectangular grid and adds a
-        separatrix line.
+        The function `view_electrons_density` plots the electron density on the original GGD mesh
+        using tripcolor (Gouraud shading) and adds a separatrix line.
 
         Args:
             ax: The parameter "ax" is an instance of the matplotlib Axes class. It represents the axes on
@@ -119,25 +120,34 @@ class EdgeProfilesView:
                 plotted. It is an optional parameter with a default value of 0. Defaults to 0
 
         Returns:
-            the pcolormesh object 'c'.
+            the tripcolor object 'c'.
         """
-        x, y = self.edge_profiles_compute.get_rectangular_grid(500)
+        ne_values = self.edge_profiles_compute.get_electron_density_on_cells(time_slice)
 
-        ne_edge = self.edge_profiles_compute.get_electron_density(time_slice, x, y)
-        if ne_edge is not None:
+        if ne_values is not None:
+            polygons, cell_values = self.edge_profiles_compute.get_cell_polygons_and_values(time_slice, ne_values)
+            if polygons is None or len(polygons) == 0:
+                logger.warning("edge_profiles: no cell polygons available, cannot plot electron density")
+                return None
+            all_r = np.concatenate([v[:, 0] for v in polygons])
+            all_z = np.concatenate([v[:, 1] for v in polygons])
             ax.grid(False)
-            c = ax.pcolormesh(x, y, ne_edge, vmin=0, vmax=5e19, shading="auto")
+            pc = PolyCollection(polygons, array=cell_values, cmap="coolwarm", linewidths=0)
+            pc.set_clim(float(cell_values.min()), float(cell_values.max()))
+            ax.add_collection(pc)
+            ax.set_xlim(all_r.min(), all_r.max())
+            ax.set_ylim(all_z.min(), all_z.max())
             core_boundry = self.edge_profiles_compute.get_core_boundry(time_slice)
-            ax.fill(core_boundry[:, 0], core_boundry[:, 1], facecolor="w", edgecolor="r", linewidth=0)
+            ax.fill(core_boundry[:, 0], core_boundry[:, 1], facecolor="w", edgecolor="none")
             if show_separatrix:
                 separatrix = self.edge_profiles_compute.get_separatrix(time_slice)
                 if separatrix is not None:
-                    ax.scatter(separatrix[:, 0], separatrix[:, 1], color="#FF1493", marker="x")
+                    ax.scatter(separatrix[:, 0], separatrix[:, 1], color="#FF1493", marker="x", s=10)
             ax.set_aspect("equal", adjustable="box")
             ax.set_xlabel("R,m")
             ax.set_ylabel("Z,m")
             ax.set_title("Electron density")
-            return c
+            return pc
         else:
             xmin, xmax = ax.get_xlim()
             ymin, ymax = ax.get_ylim()
@@ -152,7 +162,8 @@ class EdgeProfilesView:
 
     def view_ion_density(self, ax, time_slice, show_separatrix=False):
         """
-        The function `view_ion_density` plots the ion density on a rectangular grid and adds a separatrix line.
+        The function `view_ion_density` plots the ion density on the original GGD mesh
+        using tripcolor (Gouraud shading) and adds a separatrix line.
 
         Args:
             ax: The parameter "ax" is an instance of the matplotlib Axes class. It represents the axes on
@@ -161,26 +172,31 @@ class EdgeProfilesView:
                 be plotted. It is an optional parameter with a default value of 0. Defaults to 0
 
         Returns:
-            the pcolormesh object 'c'.
+            the tripcolor object 'c'.
         """
-        x, y = self.edge_profiles_compute.get_rectangular_grid(500)
+        ni_values = self.edge_profiles_compute.get_ion_density_on_cells(time_slice)
 
-        ni_edge = self.edge_profiles_compute.get_ion_density(time_slice, x, y)
-        if ni_edge is not None:
+        if ni_values is not None:
+            polygons, cell_values = self.edge_profiles_compute.get_cell_polygons_and_values(time_slice, ni_values)
+            all_r = np.concatenate([v[:, 0] for v in polygons])
+            all_z = np.concatenate([v[:, 1] for v in polygons])
             ax.grid(False)
-            c = ax.pcolormesh(x, y, ni_edge, vmin=0, vmax=5e19, shading="auto")
+            pc = PolyCollection(polygons, array=cell_values, cmap="coolwarm", linewidths=0)
+            pc.set_clim(float(cell_values.min()), float(cell_values.max()))
+            ax.add_collection(pc)
+            ax.set_xlim(all_r.min(), all_r.max())
+            ax.set_ylim(all_z.min(), all_z.max())
             core_boundry = self.edge_profiles_compute.get_core_boundry(time_slice)
-            ax.fill(core_boundry[:, 0], core_boundry[:, 1], facecolor="w", edgecolor="r", linewidth=0)
+            ax.fill(core_boundry[:, 0], core_boundry[:, 1], facecolor="w", edgecolor="none")
             if show_separatrix:
                 separatrix = self.edge_profiles_compute.get_separatrix(time_slice)
                 if separatrix is not None:
-                    ax.scatter(separatrix[:, 0], separatrix[:, 1], color="#FF1493", marker="x")
-
+                    ax.scatter(separatrix[:, 0], separatrix[:, 1], color="#FF1493", marker="x", s=10)
             ax.set_aspect("equal", adjustable="box")
             ax.set_xlabel("R,m")
             ax.set_ylabel("Z,m")
             ax.set_title("Ion density")
-            return c
+            return pc
         else:
             xmin, xmax = ax.get_xlim()
             ymin, ymax = ax.get_ylim()
@@ -195,8 +211,8 @@ class EdgeProfilesView:
 
     def view_neutral_density(self, ax, time_slice, show_separatrix=False):
         """
-        The function `view_neutral_density` plots the neutral density on a rectangular grid and adds a
-        separatrix line.
+        The function `view_neutral_density` plots the neutral density on the original GGD mesh
+        using tripcolor (Gouraud shading) and adds a separatrix line.
 
         Args:
             ax: The parameter "ax" is an instance of the matplotlib Axes class. It represents the axes
@@ -205,26 +221,33 @@ class EdgeProfilesView:
                 will be plotted. It is an optional parameter with a default value of 0. Defaults to 0
 
         Returns:
-            the pcolormesh object 'c'.
+            the tripcolor object 'c'.
         """
-        x, y = self.edge_profiles_compute.get_rectangular_grid(500)
+        n_neutral_values = self.edge_profiles_compute.get_neutral_density_on_cells(time_slice)
 
-        n_neutral_edge = self.edge_profiles_compute.get_neutral_density(time_slice, x, y)
-
-        if n_neutral_edge is not None:
+        if n_neutral_values is not None:
+            polygons, cell_values = self.edge_profiles_compute.get_cell_polygons_and_values(
+                time_slice, n_neutral_values
+            )
+            all_r = np.concatenate([v[:, 0] for v in polygons])
+            all_z = np.concatenate([v[:, 1] for v in polygons])
             ax.grid(False)
-            c = ax.pcolormesh(x, y, n_neutral_edge, vmin=0, vmax=5e19, shading="auto")
+            pc = PolyCollection(polygons, array=cell_values, cmap="coolwarm", linewidths=0)
+            pc.set_clim(float(cell_values.min()), float(cell_values.max()))
+            ax.add_collection(pc)
+            ax.set_xlim(all_r.min(), all_r.max())
+            ax.set_ylim(all_z.min(), all_z.max())
             core_boundry = self.edge_profiles_compute.get_core_boundry(time_slice)
-            ax.fill(core_boundry[:, 0], core_boundry[:, 1], facecolor="w", edgecolor="r", linewidth=0)
+            ax.fill(core_boundry[:, 0], core_boundry[:, 1], facecolor="w", edgecolor="none")
             if show_separatrix:
                 separatrix = self.edge_profiles_compute.get_separatrix(time_slice)
                 if separatrix is not None:
-                    ax.scatter(separatrix[:, 0], separatrix[:, 1], color="#FF1493", marker="x")
+                    ax.scatter(separatrix[:, 0], separatrix[:, 1], color="#FF1493", marker="x", s=10)
             ax.set_aspect("equal", adjustable="box")
             ax.set_xlabel("R,m")
             ax.set_ylabel("Z,m")
             ax.set_title("Neutral density")
-            return c
+            return pc
         else:
             xmin, xmax = ax.get_xlim()
             ymin, ymax = ax.get_ylim()
@@ -237,23 +260,34 @@ class EdgeProfilesView:
             )
             return None
 
-    def view_equatorial_plane_and_diverter_density(self, ax, time_slice, logscale=False):
-        x, y = self.edge_profiles_compute.get_rectangular_grid(500)
-        ne_edge = self.edge_profiles_compute.get_electron_density(time_slice, x, y)
-        if ne_edge is not None:
-            # choose Z position for a radial profile:
-            z0 = 0.0
-            ind = np.argmin(abs(y[:, 0] - z0))
-            ax.plot(x[ind, :], ne_edge[ind, :], label="Equatorial plane")
+    def view_equatorial_plane_and_diverter_density(self, ax, time_slice, logscale=True):
+        OUTER_MIDPLANE_INDEX = 11
+        OUTER_TARGET_INDEX = 13
+        INNER_TARGET_INDEX = 14
 
-            z0 = -4.0
-            ind = np.argmin(abs(y[:, 0] - z0))
-            ax.plot(x[ind, :], ne_edge[ind, :], label="Divertor")
+        any_data = False
+
+        for subset_idx, label in (
+            (OUTER_MIDPLANE_INDEX, "Outer midplane"),
+            (OUTER_TARGET_INDEX, "Outer divertor target"),
+            (INNER_TARGET_INDEX, "Inner divertor target"),
+        ):
+            r_t, z_t, ne_t = self.edge_profiles_compute.get_rz_and_ne_on_subset(time_slice, subset_idx)
+            if r_t is None or len(r_t) == 0:
+                continue
+            # Arc-length as x-axis
+            coords = np.column_stack([r_t, z_t])
+            seg_len = np.sqrt(np.sum(np.diff(coords, axis=0) ** 2, axis=1))
+            arc = np.concatenate([[0.0], np.cumsum(seg_len)])
+            ax.plot(arc, ne_t, label=label)
+            any_data = True
+
+        if any_data:
             if logscale:
                 ax.set_yscale("log")
             ax.set_title("Electron density")
-            ax.set_xlabel("R,m")
-            # ax.set_ylim([0, 1.5e21])
+            ax.set_xlabel("Distance along profile (m)")
+            ax.set_ylabel("n$_e$ (m$^{-3}$)")
             ax.legend()
         else:
             xmin, xmax = ax.get_xlim()

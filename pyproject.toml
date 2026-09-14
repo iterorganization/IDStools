@@ -53,6 +53,7 @@ dependencies = [
     "numpy",
     "packaging",
     "pandas",
+    "plotext>=5.0,<6.0",
     "pyparsing",
     "python-dateutil",
     "pyyaml",
@@ -78,6 +79,7 @@ plotpressure = "idstools.scripts:plotpressure"
 plotrotation = "idstools.scripts:plotrotation"
 plotequicomp = "idstools.scripts:plotequicomp"
 plotcoresources = "idstools.scripts:plotcoresources"
+plotcoretransport = "idstools.scripts:plotcoretransport"
 plotkineticprofiles = "idstools.scripts:plotkineticprofiles"
 plothcdwaves = "idstools.scripts:plothcdwaves"
 plotecray = "idstools.scripts:plotecray"
