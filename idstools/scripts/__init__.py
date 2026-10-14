@@ -189,6 +189,11 @@ def idsrosettacode():
     _load_script_main("idsrosettacode")()
 
 
+def create_summary():
+    """Create the summary IDS of a data entry from its other IDSs."""
+    _load_script_main("create_summary")()
+
+
 def eqdsk2ids():
     """Convert EQDSK file to IDS format."""
     _load_script_main("eqdsk2ids")()
@@ -309,6 +314,7 @@ __all__ = [
     "idsrescale_equilibrium",
     "idsshift_equilibrium",
     "idsrosettacode",
+    "create_summary",
     "eqdsk2ids",
     "dbconverter",
     "dbscraper",

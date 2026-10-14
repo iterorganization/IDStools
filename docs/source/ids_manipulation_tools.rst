@@ -8,6 +8,7 @@ copying, moving, or comparing differences etc.
 .. toctree::
    :maxdepth: 1
 
+   create_summary
    eqdsk2ids
    idscp
    idsdiff

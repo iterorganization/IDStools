@@ -100,6 +100,7 @@ idssize = "idstools.scripts:idssize"
 idsrescale_equilibrium = "idstools.scripts:idsrescale_equilibrium"
 idsshift_equilibrium = "idstools.scripts:idsshift_equilibrium"
 idsrosettacode = "idstools.scripts:idsrosettacode"
+create_summary = "idstools.scripts:create_summary"
 eqdsk2ids = "idstools.scripts:eqdsk2ids"
 # Database management tools
 dbconverter = "idstools.scripts:dbconverter"
