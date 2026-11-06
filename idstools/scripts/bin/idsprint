@@ -102,6 +102,23 @@ def _series_labels(field_name, count):
     return [f"{field_name} [{series_index}]" for series_index in range(count)]
 
 
+def _load_subtree(node):
+    """Force loading of all leaves below ``node`` of a lazy-loaded IDS.
+
+    ``iter_nonempty_(accept_lazy=True)`` only yields children that are already
+    loaded, so a lazily accessed structure would otherwise print as empty.
+    Touching every leaf loads just this subtree instead of the whole IDS.
+    """
+    if isinstance(node, imas.ids_struct_array.IDSStructArray):
+        for item in node:
+            _load_subtree(item)
+    elif isinstance(node, imas.ids_structure.IDSStructure):
+        for child in node:
+            _load_subtree(child)
+    else:
+        node.value  # noqa: B018 - triggers the lazy read of this leaf
+
+
 def print_terminal_plot(
     field,
     coordinate,
@@ -691,7 +708,7 @@ if __name__ == "__main__":
                 except Exception as e:
                     logger.error(f"{coordinate} path does not exist, hint: check length of arrays, detailed error {e}")
 
-        ids_path = ids_path.replace("(", "[").replace(")", "]").replace("/", ".")
+        ids_path = ids_path.rstrip("/").replace("(", "[").replace(")", "]").replace("/", ".")
         if ":" in ids_path:
             node, _coordinate, node_unit, coordinate_unit = partial_get(ids, ids_path)
 
@@ -704,8 +721,7 @@ if __name__ == "__main__":
                 node = eval("ids." + ids_path)
                 # reevaluate if struct or struct_array
                 if isinstance(node, (imas.ids_structure.IDSStructure, imas.ids_struct_array.IDSStructArray)):
-                    ids = connection.get(ids_name, occurrence, autoconvert=False)
-                    node = eval("ids." + ids_path)
+                    _load_subtree(node)
             except Exception as e:
                 logger.error(f"{ids_path} path does not exist, hint: check length of arrays, detailed error {e}")
                 node = np.array([]).reshape(
