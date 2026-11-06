@@ -23,6 +23,7 @@ from idstools.utils.clihelper import (
     get_file_name,
     rcparam_parser,
 )
+from idstools.utils.idshelper import get_ids_slice
 from idstools.utils.idslogger import setup_logger
 from idstools.view.common import PlotCanvas
 from idstools.view.edge_profiles import EdgeProfilesView
@@ -125,24 +126,25 @@ if __name__ == "__main__":
                         h = vessel_unit["h"]
                         break
 
-    edge_profile_ids = None
     try:
-
-        if args.dd_update:
-            edge_profile_ids = connection.get("edge_profiles", autoconvert=False)
-            edge_profile_ids = imas.convert_ids(edge_profile_ids, connection.factory.version)
-        else:
-            edge_profile_ids = connection.get("edge_profiles", lazy=True, autoconvert=False)
+        time_array = connection.get("edge_profiles", lazy=True, autoconvert=False).time
     except Exception as e:
         logger.error(f"edge_profiles ids is not present, detailed error {e}")
         exit(1)
 
-    time_array = edge_profile_ids.time
-    if time_array is None:
+    if len(time_array) == 0:
         logger.error("edge_profiles ids : time is not present")
         exit(1)
 
-    time_slice, time_value = get_nearest_time(time_array, args.time)
+    _, time_value = get_nearest_time(time_array, args.time)
+
+    edge_profile_ids = None
+    try:
+        edge_profile_ids = get_ids_slice(connection, "edge_profiles", time_value, dd_update=args.dd_update)
+    except Exception as e:
+        logger.error(f"edge_profiles ids could not be read at time {time_value}, detailed error {e}")
+        exit(1)
+    time_slice = 0
 
     if len(edge_profile_ids.grid_ggd) == 0:
         logger.error(

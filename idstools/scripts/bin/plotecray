@@ -8,6 +8,8 @@ import copy
 import logging
 import os
 
+import numpy as np
+
 try:
     import imaspy as imas
 except ImportError:
@@ -26,6 +28,7 @@ from idstools.utils.clihelper import (
     rcparam_parser,
 )
 from idstools.utils.idshelper import get_available_ids_and_times
+from idstools.utils.idshelper import get_ids_slice
 from idstools.utils.idslogger import setup_logger
 from idstools.view.common import PlotCanvas
 from idstools.view.domain.ecstray import EcStrayView
@@ -109,44 +112,32 @@ if __name__ == "__main__":
         logger.critical("----> Aborted.")
         exit(1)
 
-    ids_waves = None
+    # Every panel uses a single time slice: read only the time vectors lazily, then load just the
+    # selected slices (index 0). Indexing time-dependent arrays on a lazy IDS can make the HDF5
+    # backend read the padded datasets of all time slices (e.g. beam tracing, profiles_2d).
     try:
-
-        if args.dd_update:
-            ids_waves = conn.get("waves", autoconvert=False)
-            ids_waves = imas.convert_ids(ids_waves, conn.factory.version)
-        else:
-            ids_waves = conn.get("waves", lazy=True, autoconvert=False)
+        waves_time = np.asarray(conn.get("waves", lazy=True, autoconvert=False).time)
+        time_index_waves, time_value = get_nearest_time(waves_time, args.time)
+        ids_waves = get_ids_slice(conn, "waves", time_value, dd_update=args.dd_update)
+        time_index_waves = 0
     except Exception as e:
         logger.error(f"waves ids is not present {e}")
         exit(1)
 
-    ids_core_profiles = None
     try:
-
-        if args.dd_update:
-            ids_core_profiles = conn.get("core_profiles", autoconvert=False)
-            ids_core_profiles = imas.convert_ids(ids_core_profiles, conn.factory.version)
-        else:
-            ids_core_profiles = conn.get("core_profiles", lazy=True, autoconvert=False)
+        ids_core_profiles = get_ids_slice(conn, "core_profiles", time_value, dd_update=args.dd_update)
     except Exception as e:
         logger.error(f"core_profiles ids is not present : {e}")
         exit(1)
 
-    ids_equilibrium = None
     try:
-        if args.dd_update:
-            ids_equilibrium = conn.get("equilibrium", autoconvert=False)
-            ids_equilibrium = imas.convert_ids(ids_equilibrium, conn.factory.version)
-        else:
-            ids_equilibrium = conn.get("equilibrium", lazy=True, autoconvert=False)
+        equilibrium_time = np.asarray(conn.get("equilibrium", lazy=True, autoconvert=False).time)
+        _, time_value_equilibrium = get_nearest_time(equilibrium_time, time_value)
+        ids_equilibrium = get_ids_slice(conn, "equilibrium", time_value_equilibrium, dd_update=args.dd_update)
+        time_index_equilibrium = 0
     except Exception as e:
         logger.error(f"equilibrium ids is not present : {e}")
         exit(1)
-
-    # Search for adequate time slice for display
-    time_index_waves, time_value = get_nearest_time(ids_waves.time, args.time)
-    time_index_equilibrium, _ = get_nearest_time(ids_equilibrium.time, time_value)
 
     if len(ids_waves.code.name) > 0:
         logger.info(f"Code name = {ids_waves.code.name.upper()}")

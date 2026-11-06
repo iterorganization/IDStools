@@ -28,6 +28,7 @@ from idstools.utils.clihelper import (
     get_file_name,
     rcparam_parser,
 )
+from idstools.utils.idshelper import get_ids_slice
 from idstools.utils.idslogger import setup_logger
 from idstools.view.domain.mdplot import plot_machine_description
 from idstools.view.equilibrium import EquilibriumView
@@ -124,14 +125,19 @@ if __name__ == "__main__":
     if isinstance(args.md, bool) and args.md is True:
         args.md = [args.uri]
 
-    if args.dd_update:
-        ids_obj_equilibrium = connection.get("equilibrium", occurrence=occurrence, autoconvert=False)
-        ids_obj_equilibrium = imas.convert_ids(ids_obj_equilibrium, connection.factory.version)
-    else:
-        ids_obj_equilibrium = connection.get("equilibrium", occurrence=occurrence, lazy=True, autoconvert=False)
+    # Lazy IDS (on-disk DD version): used for the time vector and, without dd_update, for the
+    # global-quantity time traces (--profiles). Lazy autoconvert cannot cross DD major versions.
+    ids_lazy_equilibrium = connection.get("equilibrium", occurrence=occurrence, lazy=True, autoconvert=False)
 
-    if ids_obj_equilibrium.time is not None:
-        time_slice, time_value = get_nearest_time(ids_obj_equilibrium.time, args.time)
+    if ids_lazy_equilibrium.time is not None and len(ids_lazy_equilibrium.time) > 0:
+        _, time_value = get_nearest_time(ids_lazy_equilibrium.time, args.time)
+        # The 2D maps and 1D profiles use one time slice only: load just that slice (at index 0)
+        # instead of indexing time_slice[] on the lazy IDS, which can make the HDF5 backend read
+        # the padded profiles_2d datasets of all time slices.
+        ids_obj_equilibrium = get_ids_slice(
+            connection, "equilibrium", time_value, dd_update=args.dd_update, occurrence=occurrence
+        )
+        time_slice = 0
         view_object = EquilibriumView(ids_obj_equilibrium)
 
         if args.profiles:
@@ -139,7 +145,14 @@ if __name__ == "__main__":
             profiles_1d_quantities = compute_obj.get_profiles_1d_quantities(time_slice, ["pressure", "q", "beta_pol"])
             p1dcounter = sum(1 for value in profiles_1d_quantities.values() if value.has_value)
 
-            global_quantities = compute_obj.get_global_quantities(
+            # The time traces need all time slices: with dd_update the whole IDS has to be converted
+            ids_traces_equilibrium = ids_lazy_equilibrium
+            if args.dd_update:
+                ids_traces_equilibrium = imas.convert_ids(
+                    connection.get("equilibrium", occurrence=occurrence, autoconvert=False), connection.factory.version
+                )
+            traces_view_object = EquilibriumView(ids_traces_equilibrium)
+            global_quantities = EquilibriumCompute(ids_traces_equilibrium).get_global_quantities(
                 time_slice, ["q_min.value", "q_95", "li_3", "beta_tor", "energy_mhd"]
             )
             gcounter = sum(1 for value in global_quantities.values() if value["has_value"])
@@ -253,7 +266,7 @@ if __name__ == "__main__":
 
         if args.profiles:
             view_object.plot_profiles_1d_quantities(axes_list1, time_slice)
-            view_object.plot_global_quantities(axes_list2, time_value)
+            traces_view_object.plot_global_quantities(axes_list2, time_value)
 
         if args.profiles:
             canvas.fig.set_size_inches(10 + col_size * 1.6, 8)

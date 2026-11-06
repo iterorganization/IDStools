@@ -22,6 +22,7 @@ from idstools.utils.clihelper import (
     get_file_name,
     rcparam_parser,
 )
+from idstools.utils.idshelper import get_ids_slice
 from idstools.utils.idslogger import setup_logger
 from idstools.view.common import PlotCanvas
 from idstools.view.core_profiles import CoreProfilesView
@@ -62,8 +63,10 @@ if __name__ == "__main__":
     try:
 
         if args.dd_update:
-            ids_core_profiles = connection.get("core_profiles", autoconvert=False)
-            ids_core_profiles = imas.convert_ids(ids_core_profiles, connection.factory.version)
+            _, _time_value = get_nearest_time(
+                connection.get("core_profiles", lazy=True, autoconvert=False).time, args.time
+            )
+            ids_core_profiles = get_ids_slice(connection, "core_profiles", _time_value, dd_update=True)
         else:
             ids_core_profiles = connection.get("core_profiles", lazy=True, autoconvert=False)
     except Exception as e:
