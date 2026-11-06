@@ -219,8 +219,6 @@ class KineticProfilesCompute:
         self.core_profiles, self.is_core_profiles_present = self.get_ids("core_profiles", dd_update)
 
         if self.edge_required:
-            # Always lazy here: only one time slice is used, it is loaded (and converted if
-            # dd_update) on its own in fill_idses
             self.edge_profiles, self.is_edge_profiles_present = self.get_ids("edge_profiles", dd_update=False)
             if self.is_core_profiles_present:
                 logger.info("Found adjoining edge_profiles. Will attempt to add to plots.")
@@ -276,8 +274,6 @@ class KineticProfilesCompute:
             )
             if not self.is_core_profiles_present:
                 self.common_time_array = self.time_array_edge_profiles
-            # Load only the selected time slice: reading ggd/grid_ggd through a lazy IDS can make the
-            # HDF5 backend load all time slices (tens of GB for long runs). The slice is at index 0.
             try:
                 self.edge_profiles = get_ids_slice(
                     self.connection,

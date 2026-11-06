@@ -17,7 +17,7 @@ from rich_argparse import RawDescriptionRichHelpFormatter
 
 import idstools.init_mendeleiev as mend
 from idstools.utils.clihelper import imas_parser
-from idstools.utils.idshelper import get_available_ids_and_occurrences, get_ids_slice
+from idstools.utils.idshelper import get_available_ids_and_occurrences
 
 # ----------------------------------------------------------------------
 if __name__ == "__main__":
@@ -180,21 +180,6 @@ if __name__ == "__main__":
             )
         flux_present = 0
 
-    edge_slice = the_slice
-    if edge_present == 1:
-        try:
-            edge_profiles = get_ids_slice(connection, "edge_profiles", edge_profiles.time[the_slice])
-            edge_slice = 0
-        except Exception as e:
-            print(f"edge_profiles: could not load time slice {the_slice} alone ({e})", file=sys.stderr)
-    transport_slice = the_slice
-    if flux_present == 1:
-        try:
-            edge_transport = get_ids_slice(connection, "edge_transport", edge_transport.time[the_slice])
-            transport_slice = 0
-        except Exception as e:
-            print(f"edge_transport: could not load time slice {the_slice} alone ({e})", file=sys.stderr)
-
     if core_present == 0 and edge_present == 0:
         print("No profile data present", file=sys.stderr)
         print("----> Aborted.", file=sys.stderr)
@@ -277,10 +262,10 @@ if __name__ == "__main__":
             # pdb.set_trace()
             # edge_profiles.ggd[the_slice].ion = input.edge_profiles.partialGet('ggd('+str(the_slice)+')/ion')
 
-            nspecies = len(edge_profiles.ggd[edge_slice].ion)
+            nspecies = len(edge_profiles.ggd[the_slice].ion)
             a = [0] * nspecies
             for ispecies in range(nspecies):
-                a[ispecies] = int(edge_profiles.ggd[edge_slice].ion[ispecies].element[0].a)
+                a[ispecies] = int(edge_profiles.ggd[the_slice].ion[ispecies].element[0].a)
         except Exception as e:
             print(
                 "edge_profiles.ggd[:].ion[:].element[0].a could not be read",
@@ -306,10 +291,10 @@ if __name__ == "__main__":
             z = [0]
     else:
         try:
-            nspecies = len(edge_profiles.ggd[edge_slice].ion)
+            nspecies = len(edge_profiles.ggd[the_slice].ion)
             z = [0] * nspecies
             for ispecies in range(nspecies):
-                z[ispecies] = int(edge_profiles.ggd[edge_slice].ion[ispecies].element[0].z_n)
+                z[ispecies] = int(edge_profiles.ggd[the_slice].ion[ispecies].element[0].z_n)
         except Exception as e:
             print(
                 "edge_profiles.ggd[:].ion[:].element[0].z_n could not be read",
@@ -435,19 +420,15 @@ if __name__ == "__main__":
             p_sol = 0
             p_sol_e = 0
             p_sol_i = 0
-            nsubsets = len(edge_transport.model[0].ggd[transport_slice].electrons.energy.flux)
+            nsubsets = len(edge_transport.model[0].ggd[the_slice].electrons.energy.flux)
             for iset in range(nsubsets):
-                if edge_transport.model[0].ggd[transport_slice].electrons.energy.flux[iset].grid_subset_index == 26:
-                    for iFace in range(
-                        len(edge_transport.model[0].ggd[transport_slice].electrons.energy.flux[iset].values)
-                    ):
-                        faceindex = (
-                            edge_transport.grid_ggd[transport_slice].grid_subset[iset].element[iFace].object[0].index
-                        )
+                if edge_transport.model[0].ggd[the_slice].electrons.energy.flux[iset].grid_subset_index == 26:
+                    for iFace in range(len(edge_transport.model[0].ggd[the_slice].electrons.energy.flux[iset].values)):
+                        faceindex = edge_transport.grid_ggd[the_slice].grid_subset[iset].element[iFace].object[0].index
                         # Allow for backward-compatibility when measure contained the area instead of the edge length
                         try:
                             area = (
-                                edge_transport.grid_ggd[transport_slice]
+                                edge_transport.grid_ggd[the_slice]
                                 .space[0]
                                 .objects_per_dimension[1]
                                 .object[faceindex - 1]
@@ -455,25 +436,23 @@ if __name__ == "__main__":
                             )
                         except Exception as e:
                             area = (
-                                edge_transport.grid_ggd[transport_slice]
+                                edge_transport.grid_ggd[the_slice]
                                 .space[0]
                                 .objects_per_dimension[1]
                                 .object[faceindex - 1]
                                 .measure
                             )
-                        flux = edge_transport.model[0].ggd[transport_slice].electrons.energy.flux[iset].values[iFace]
+                        flux = edge_transport.model[0].ggd[the_slice].electrons.energy.flux[iset].values[iFace]
                         p_sol_e = p_sol_e + flux * area
                         try:
-                            flux = (
-                                edge_transport.model[0].ggd[transport_slice].total_ion_energy.flux[iset].values[iFace]
-                            )
+                            flux = edge_transport.model[0].ggd[the_slice].total_ion_energy.flux[iset].values[iFace]
                         except Exception as e:
                             flux = 0
                             for ispecies in range(nspecies):
                                 flux = (
                                     flux
                                     + edge_transport.model[0]
-                                    .ggd[transport_slice]
+                                    .ggd[the_slice]
                                     .ion[ispecies]
                                     .energy.flux[iset]
                                     .values[iFace]

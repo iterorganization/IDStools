@@ -112,9 +112,6 @@ if __name__ == "__main__":
         logger.critical("----> Aborted.")
         exit(1)
 
-    # Every panel uses a single time slice: read only the time vectors lazily, then load just the
-    # selected slices (index 0). Indexing time-dependent arrays on a lazy IDS can make the HDF5
-    # backend read the padded datasets of all time slices (e.g. beam tracing, profiles_2d).
     try:
         waves_time = np.asarray(conn.get("waves", lazy=True, autoconvert=False).time)
         time_index_waves, time_value = get_nearest_time(waves_time, args.time)
