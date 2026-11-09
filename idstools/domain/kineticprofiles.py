@@ -11,7 +11,7 @@ from idstools.compute.common import get_nearest_time
 from idstools.compute.core_profiles import CoreProfilesCompute
 from idstools.compute.edge_profiles import EdgeProfilesCompute
 from idstools.compute.equilibrium import EquilibriumCompute
-from idstools.utils.idshelper import get_available_ids_and_occurrences
+from idstools.utils.idshelper import get_available_ids_and_occurrences, get_ids_slice
 
 logger = logging.getLogger("module")
 
@@ -26,6 +26,8 @@ class KineticProfilesCompute:
 
         self.core_profiles = None
         self.edge_profiles = None
+        self.edge_profiles_occurrence = 0
+        self.dd_update = False
         self.equilibrium = None
 
         self.is_core_profiles_present = True
@@ -102,6 +104,7 @@ class KineticProfilesCompute:
     def analyze(self, connection, time_value, edge_required, dd_update=False):
         self.connection = connection
         self.edge_required = edge_required
+        self.dd_update = dd_update
         self.available_ids = get_available_ids_and_occurrences(connection)
         self.initialised = self.check_idsses(dd_update)
         self.fill_idses(time_value)
@@ -185,6 +188,8 @@ class KineticProfilesCompute:
                             )
                         else:
                             ids_object = self.connection.get(ids_name, occurrence=occ, lazy=True, autoconvert=False)
+                        if ids_name == "edge_profiles":
+                            self.edge_profiles_occurrence = occ
 
                         if ids_object.time is not None:
                             if len(ids_object.time) > 0:
@@ -214,7 +219,7 @@ class KineticProfilesCompute:
         self.core_profiles, self.is_core_profiles_present = self.get_ids("core_profiles", dd_update)
 
         if self.edge_required:
-            self.edge_profiles, self.is_edge_profiles_present = self.get_ids("edge_profiles", dd_update)
+            self.edge_profiles, self.is_edge_profiles_present = self.get_ids("edge_profiles", dd_update=False)
             if self.is_core_profiles_present:
                 logger.info("Found adjoining edge_profiles. Will attempt to add to plots.")
             else:
@@ -263,10 +268,23 @@ class KineticProfilesCompute:
 
         if self.is_edge_profiles_present:
             self.time_array_length_edge_profiles = len(self.edge_profiles.time)
-            self.time_array_edge_profiles = self.edge_profiles.time
+            self.time_array_edge_profiles = np.asarray(self.edge_profiles.time)
             self.time_index_edge_profiles, self.time_value_edge_profiles = get_nearest_time(
                 self.time_array_edge_profiles, time_slice
             )
+            if not self.is_core_profiles_present:
+                self.common_time_array = self.time_array_edge_profiles
+            try:
+                self.edge_profiles = get_ids_slice(
+                    self.connection,
+                    "edge_profiles",
+                    self.time_value_edge_profiles,
+                    dd_update=self.dd_update,
+                    occurrence=self.edge_profiles_occurrence,
+                )
+                self.time_index_edge_profiles = 0
+            except Exception as e:
+                logger.warning(f"edge_profiles: could not load time slice {self.time_value_edge_profiles} alone ({e})")
             # Read edge_profile data for this time slice
             try:
                 _ = self.edge_profiles.profiles_1d[self.time_index_edge_profiles]
@@ -721,15 +739,16 @@ class KineticProfilesCompute:
                 ):
                     nrho = len(self.equilibrium.time_slice[self.time_index_equilibrium].profiles_1d.rho_tor_norm)
                 else:
-                    mrho = self.equlibrium_compute.getmrho()
+                    mrho = self.equlibrium_compute.getmrho(self.time_index_equilibrium)
                     nrho = len(self.equilibrium.time_slice[self.time_index_equilibrium].profiles_1d.rho_tor_norm) - mrho
 
         erho = 0
         if self.is_edge_profiles_present:
             if not self.r_out_graph:
-                erho = self.core_profiles_compute.getnrho()
-                if nrho is None or nrho == 0:
+                erho = self.edge_profiles_compute.getnrho(self.time_index_edge_profiles)
+                if erho is None or erho == 0:
                     logger.warning("edge_profiles.profiles_1d[:].grid.rho_tor_norm and rho_tor are empty.")
+                    erho = 0
             else:
                 erho = len(self.edge_profiles.grid_ggd[self.time_index_edge_profiles].grid_subset[self.gset].element)
         return nrho, mrho, erho
@@ -828,7 +847,7 @@ class KineticProfilesCompute:
                 electron_density[i] = _density[i]
         if self.is_edge_profiles_present:
             if not self.r_out_graph:
-                _density = self.core_profiles.profiles_1d[self.time_index_edge_profiles].electrons.density.value
+                _density = self.edge_profiles.profiles_1d[self.time_index_edge_profiles].electrons.density.value
                 if len(_density) < 1:
                     logger.warning("edge_profiles.profiles_1d[:].electrons.density could not be read.")
                     _density = np.asarray([np.nan] * self.erho)
@@ -1098,11 +1117,17 @@ class KineticProfilesCompute:
                             for istate in range(
                                 len(self.edge_profiles.ggd[self.time_index_edge_profiles].ion[jspecies].state)
                             ):
-                                _density = (
+                                # ggd ion.state.density is an array of GGD scalars (one per grid subset)
+                                _state_density = (
                                     self.edge_profiles.ggd[self.time_index_edge_profiles]
                                     .ion[jspecies]
                                     .state[istate]
-                                    .density.value
+                                    .density
+                                )
+                                _density = (
+                                    np.asarray(_state_density[self.gset].values)
+                                    if self.gset < len(_state_density)
+                                    else np.asarray([])
                                 )
                                 if len(_density) < 1:
                                     logger.warning(
@@ -1112,7 +1137,7 @@ class KineticProfilesCompute:
                                     _density = np.asarray([0] * self.erho)
                                 for i in range(self.erho):
                                     ion_density[ispecies][self.nrho + i] = (
-                                        ion_density[ispecies][self.nrho + i] + _density.values[i]
+                                        ion_density[ispecies][self.nrho + i] + _density[i]
                                     )
         return ion_density
 

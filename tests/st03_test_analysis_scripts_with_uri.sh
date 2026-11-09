@@ -33,6 +33,7 @@ SCRIPTS=(
     "plotecray --uri \"imas:mdsplus?user=public;pulse=134173;run=2326;database=TEST;version=3\" --save --directory $LOG_DIR"
     "plotecray --uri \"imas:mdsplus?user=public;pulse=134173;run=2326;database=TEST;version=3\" -md wall --save --directory $LOG_DIR"
     "plotedgeprofiles --uri \"imas:hdf5?user=public;pulse=134174;run=117;database=ITER;version=3\" --wall --time 60 --save --directory $LOG_DIR"
+    "plotedgeprofiles --uri \"imas:hdf5?user=public;pulse=134174;run=117;database=ITER;version=3\" --wall --time 60 --logscale --save --directory $LOG_DIR"
     "plotequilibrium --uri \"imas:hdf5?user=public;pulse=134174;run=117;database=ITER;version=3\" --phi -md \"imas:hdf5?user=public;pulse=111001;run=103;database=ITER_MD;version=3#pf_active\" \"imas:hdf5?user=public;pulse=116000;run=5;database=ITER_MD;version=3#wall\" --save --directory $LOG_DIR"
     "plotequilibrium --uri \"imas:hdf5?user=public;pulse=134174;run=117;database=ITER;version=3\" -md pf_active wall --save --directory $LOG_DIR"
     "printfluxes --uri \"imas:hdf5?user=public;pulse=134174;run=117;database=ITER;version=3\" -m CLOSEST"

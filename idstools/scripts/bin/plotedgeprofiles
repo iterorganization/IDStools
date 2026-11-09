@@ -23,6 +23,7 @@ from idstools.utils.clihelper import (
     get_file_name,
     rcparam_parser,
 )
+from idstools.utils.idshelper import get_ids_slice
 from idstools.utils.idslogger import setup_logger
 from idstools.view.common import PlotCanvas
 from idstools.view.edge_profiles import EdgeProfilesView
@@ -54,7 +55,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--logscale",
-        help="Shows y axis with logarithmic scale wherever appropriate",
+        help="Use a logarithmic scale for the density line plot and for the colour bars of the 2D density maps",
         action="store_true",
     )
     parser.add_argument(
@@ -125,24 +126,25 @@ if __name__ == "__main__":
                         h = vessel_unit["h"]
                         break
 
-    edge_profile_ids = None
     try:
-
-        if args.dd_update:
-            edge_profile_ids = connection.get("edge_profiles", autoconvert=False)
-            edge_profile_ids = imas.convert_ids(edge_profile_ids, connection.factory.version)
-        else:
-            edge_profile_ids = connection.get("edge_profiles", lazy=True, autoconvert=False)
+        time_array = connection.get("edge_profiles", lazy=True, autoconvert=False).time
     except Exception as e:
         logger.error(f"edge_profiles ids is not present, detailed error {e}")
         exit(1)
 
-    time_array = edge_profile_ids.time
-    if time_array is None:
+    if len(time_array) == 0:
         logger.error("edge_profiles ids : time is not present")
         exit(1)
 
-    time_slice, time_value = get_nearest_time(time_array, args.time)
+    _, time_value = get_nearest_time(time_array, args.time)
+
+    edge_profile_ids = None
+    try:
+        edge_profile_ids = get_ids_slice(connection, "edge_profiles", time_value, dd_update=args.dd_update)
+    except Exception as e:
+        logger.error(f"edge_profiles ids could not be read at time {time_value}, detailed error {e}")
+        exit(1)
+    time_slice = 0
 
     if len(edge_profile_ids.grid_ggd) == 0:
         logger.error(
@@ -166,21 +168,21 @@ if __name__ == "__main__":
     ax2 = canvas.add_axes(title="", xlabel="", row=0, col=2, rowspan=2)
     ax3 = canvas.add_axes(title="", xlabel="", row=0, col=3, rowspan=2)
 
-    c1 = edge_profiles_view.view_electrons_density(ax1, time_slice, show_separatrix=False)
+    c1 = edge_profiles_view.view_electrons_density(ax1, time_slice, show_separatrix=False, logscale=args.logscale)
     if c1 is not None:
         canvas.fig.colorbar(c1, ax=ax1)
         if wall_ids:
             if r is not None and z is not None:
                 ax1.plot(r, z, "silver")
 
-    c2 = edge_profiles_view.view_ion_density(ax2, time_slice, show_separatrix=False)
+    c2 = edge_profiles_view.view_ion_density(ax2, time_slice, show_separatrix=False, logscale=args.logscale)
     if c2 is not None:
         canvas.fig.colorbar(c2, ax=ax2)
         if wall_ids:
             if r is not None and z is not None:
                 ax2.plot(r, z, "silver")
 
-    c3 = edge_profiles_view.view_neutral_density(ax3, time_slice, show_separatrix=False)
+    c3 = edge_profiles_view.view_neutral_density(ax3, time_slice, show_separatrix=False, logscale=args.logscale)
     if c3 is not None:
         canvas.fig.colorbar(c3, ax=ax3)
         if wall_ids:

@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 from matplotlib.collections import PolyCollection
+from matplotlib.colors import LogNorm
 
 from idstools.compute.edge_profiles import EdgeProfilesCompute
 
@@ -108,7 +109,40 @@ class EdgeProfilesView:
                 )
                 istate += 1
 
-    def view_electrons_density(self, ax, time_slice, show_separatrix=False):
+    @staticmethod
+    def _add_cell_collection(ax, polygons, cell_values, logscale=False):
+        """Draw GGD cells coloured by ``cell_values``; with ``logscale`` the colour map is logarithmic.
+
+        A logarithmic norm only accepts positive values: cells with values <= 0 are masked (left
+        uncoloured) and the lower colour limit is the smallest positive value.
+        """
+        cell_values = np.asarray(cell_values, dtype=float)
+        all_r = np.concatenate([v[:, 0] for v in polygons])
+        all_z = np.concatenate([v[:, 1] for v in polygons])
+        ax.grid(False)
+        norm = None
+        array = cell_values
+        if logscale:
+            positive = cell_values[np.isfinite(cell_values) & (cell_values > 0)]
+            if positive.size == 0:
+                logger.warning("edge_profiles: no positive values, cannot use a logarithmic colour scale")
+            else:
+                n_masked = int(np.count_nonzero(~(cell_values > 0)))
+                if n_masked:
+                    logger.warning(
+                        f"edge_profiles: {n_masked} cell(s) with values <= 0 are not shown on the logarithmic scale"
+                    )
+                array = np.ma.masked_less_equal(cell_values, 0.0)
+                norm = LogNorm(vmin=float(positive.min()), vmax=float(positive.max()))
+        pc = PolyCollection(polygons, array=array, cmap="coolwarm", norm=norm, linewidths=0)
+        if norm is None:
+            pc.set_clim(float(np.nanmin(cell_values)), float(np.nanmax(cell_values)))
+        ax.add_collection(pc)
+        ax.set_xlim(all_r.min(), all_r.max())
+        ax.set_ylim(all_z.min(), all_z.max())
+        return pc
+
+    def view_electrons_density(self, ax, time_slice, show_separatrix=False, logscale=False):
         """
         The function `view_electrons_density` plots the electron density on the original GGD mesh
         using tripcolor (Gouraud shading) and adds a separatrix line.
@@ -119,8 +153,10 @@ class EdgeProfilesView:
             time_slice: The `time_slice` parameter represents the time slice at which the neutral density will be
                 plotted. It is an optional parameter with a default value of 0. Defaults to 0
 
+            logscale: If True, map the colours (and the colour bar) on a logarithmic scale.
+
         Returns:
-            the tripcolor object 'c'.
+            the PolyCollection object, to be used for the colour bar.
         """
         ne_values = self.edge_profiles_compute.get_electron_density_on_cells(time_slice)
 
@@ -129,14 +165,7 @@ class EdgeProfilesView:
             if polygons is None or len(polygons) == 0:
                 logger.warning("edge_profiles: no cell polygons available, cannot plot electron density")
                 return None
-            all_r = np.concatenate([v[:, 0] for v in polygons])
-            all_z = np.concatenate([v[:, 1] for v in polygons])
-            ax.grid(False)
-            pc = PolyCollection(polygons, array=cell_values, cmap="coolwarm", linewidths=0)
-            pc.set_clim(float(cell_values.min()), float(cell_values.max()))
-            ax.add_collection(pc)
-            ax.set_xlim(all_r.min(), all_r.max())
-            ax.set_ylim(all_z.min(), all_z.max())
+            pc = self._add_cell_collection(ax, polygons, cell_values, logscale=logscale)
             core_boundry = self.edge_profiles_compute.get_core_boundry(time_slice)
             ax.fill(core_boundry[:, 0], core_boundry[:, 1], facecolor="w", edgecolor="none")
             if show_separatrix:
@@ -160,7 +189,7 @@ class EdgeProfilesView:
             )
             return None
 
-    def view_ion_density(self, ax, time_slice, show_separatrix=False):
+    def view_ion_density(self, ax, time_slice, show_separatrix=False, logscale=False):
         """
         The function `view_ion_density` plots the ion density on the original GGD mesh
         using tripcolor (Gouraud shading) and adds a separatrix line.
@@ -171,21 +200,19 @@ class EdgeProfilesView:
             time_slice: The `time_slice` parameter represents the time slice at which the neutral density will
                 be plotted. It is an optional parameter with a default value of 0. Defaults to 0
 
+            logscale: If True, map the colours (and the colour bar) on a logarithmic scale.
+
         Returns:
-            the tripcolor object 'c'.
+            the PolyCollection object, to be used for the colour bar.
         """
         ni_values = self.edge_profiles_compute.get_ion_density_on_cells(time_slice)
 
         if ni_values is not None:
             polygons, cell_values = self.edge_profiles_compute.get_cell_polygons_and_values(time_slice, ni_values)
-            all_r = np.concatenate([v[:, 0] for v in polygons])
-            all_z = np.concatenate([v[:, 1] for v in polygons])
-            ax.grid(False)
-            pc = PolyCollection(polygons, array=cell_values, cmap="coolwarm", linewidths=0)
-            pc.set_clim(float(cell_values.min()), float(cell_values.max()))
-            ax.add_collection(pc)
-            ax.set_xlim(all_r.min(), all_r.max())
-            ax.set_ylim(all_z.min(), all_z.max())
+            if polygons is None or len(polygons) == 0:
+                logger.warning("edge_profiles: no cell polygons available, cannot plot ion density")
+                return None
+            pc = self._add_cell_collection(ax, polygons, cell_values, logscale=logscale)
             core_boundry = self.edge_profiles_compute.get_core_boundry(time_slice)
             ax.fill(core_boundry[:, 0], core_boundry[:, 1], facecolor="w", edgecolor="none")
             if show_separatrix:
@@ -209,7 +236,7 @@ class EdgeProfilesView:
             )
             return None
 
-    def view_neutral_density(self, ax, time_slice, show_separatrix=False):
+    def view_neutral_density(self, ax, time_slice, show_separatrix=False, logscale=False):
         """
         The function `view_neutral_density` plots the neutral density on the original GGD mesh
         using tripcolor (Gouraud shading) and adds a separatrix line.
@@ -220,8 +247,10 @@ class EdgeProfilesView:
             time_slice: The `time_slice` parameter represents the time slice at which the neutral density
                 will be plotted. It is an optional parameter with a default value of 0. Defaults to 0
 
+            logscale: If True, map the colours (and the colour bar) on a logarithmic scale.
+
         Returns:
-            the tripcolor object 'c'.
+            the PolyCollection object, to be used for the colour bar.
         """
         n_neutral_values = self.edge_profiles_compute.get_neutral_density_on_cells(time_slice)
 
@@ -229,14 +258,10 @@ class EdgeProfilesView:
             polygons, cell_values = self.edge_profiles_compute.get_cell_polygons_and_values(
                 time_slice, n_neutral_values
             )
-            all_r = np.concatenate([v[:, 0] for v in polygons])
-            all_z = np.concatenate([v[:, 1] for v in polygons])
-            ax.grid(False)
-            pc = PolyCollection(polygons, array=cell_values, cmap="coolwarm", linewidths=0)
-            pc.set_clim(float(cell_values.min()), float(cell_values.max()))
-            ax.add_collection(pc)
-            ax.set_xlim(all_r.min(), all_r.max())
-            ax.set_ylim(all_z.min(), all_z.max())
+            if polygons is None or len(polygons) == 0:
+                logger.warning("edge_profiles: no cell polygons available, cannot plot neutral density")
+                return None
+            pc = self._add_cell_collection(ax, polygons, cell_values, logscale=logscale)
             core_boundry = self.edge_profiles_compute.get_core_boundry(time_slice)
             ax.fill(core_boundry[:, 0], core_boundry[:, 1], facecolor="w", edgecolor="none")
             if show_separatrix:
