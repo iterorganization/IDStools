@@ -55,7 +55,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--logscale",
-        help="Shows y axis with logarithmic scale wherever appropriate",
+        help="Use a logarithmic scale for the density line plot and for the colour bars of the 2D density maps",
         action="store_true",
     )
     parser.add_argument(
@@ -168,21 +168,21 @@ if __name__ == "__main__":
     ax2 = canvas.add_axes(title="", xlabel="", row=0, col=2, rowspan=2)
     ax3 = canvas.add_axes(title="", xlabel="", row=0, col=3, rowspan=2)
 
-    c1 = edge_profiles_view.view_electrons_density(ax1, time_slice, show_separatrix=False)
+    c1 = edge_profiles_view.view_electrons_density(ax1, time_slice, show_separatrix=False, logscale=args.logscale)
     if c1 is not None:
         canvas.fig.colorbar(c1, ax=ax1)
         if wall_ids:
             if r is not None and z is not None:
                 ax1.plot(r, z, "silver")
 
-    c2 = edge_profiles_view.view_ion_density(ax2, time_slice, show_separatrix=False)
+    c2 = edge_profiles_view.view_ion_density(ax2, time_slice, show_separatrix=False, logscale=args.logscale)
     if c2 is not None:
         canvas.fig.colorbar(c2, ax=ax2)
         if wall_ids:
             if r is not None and z is not None:
                 ax2.plot(r, z, "silver")
 
-    c3 = edge_profiles_view.view_neutral_density(ax3, time_slice, show_separatrix=False)
+    c3 = edge_profiles_view.view_neutral_density(ax3, time_slice, show_separatrix=False, logscale=args.logscale)
     if c3 is not None:
         canvas.fig.colorbar(c3, ax=ax3)
         if wall_ids:
