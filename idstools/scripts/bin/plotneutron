@@ -22,6 +22,7 @@ from idstools.utils.clihelper import (
     get_file_name,
     rcparam_parser,
 )
+from idstools.utils.idshelper import get_ids_slice
 from idstools.utils.idslogger import setup_logger
 from idstools.view.common import PlotCanvas
 from idstools.view.distribution_sources import DistributionSourcesView
@@ -69,8 +70,10 @@ if __name__ == "__main__":
     try:
 
         if args.dd_update:
-            ids_distribution_sources = connection.get("distribution_sources", autoconvert=False)
-            ids_distribution_sources = imas.convert_ids(ids_distribution_sources, connection.factory.version)
+            _, _time_value = get_nearest_time(
+                connection.get("distribution_sources", lazy=True, autoconvert=False).time, args.time
+            )
+            ids_distribution_sources = get_ids_slice(connection, "distribution_sources", _time_value, dd_update=True)
         else:
             ids_distribution_sources = connection.get("distribution_sources", lazy=True, autoconvert=False)
     except Exception as e:
@@ -108,8 +111,10 @@ if __name__ == "__main__":
                     f"Source {str(isource)} has no global_quantities -> considered as inactive, detailed error: {e}",
                 )
                 active[isource] = 0
+        # source[:].process is not time-dependent (coordinate 1...N): only check that it is filled
         try:
-            availability_test = ids_distribution_sources.source[isource].process[time_slice]
+            if len(ids_distribution_sources.source[isource].process) == 0:
+                raise IndexError("source.process is empty")
         except Exception as e:
             if active[isource] == 1:
                 logger.warning(

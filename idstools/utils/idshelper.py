@@ -60,6 +60,16 @@ def parse_uri(uri: str):
     return result
 
 
+def get_ids_slice(connection, ids_name: str, time_value: float, dd_update: bool = False, occurrence: int = 0):
+    """Load a single time slice of an IDS (closest to ``time_value``)."""
+    ids = connection.get_slice(
+        ids_name, float(time_value), imas.ids_defs.CLOSEST_INTERP, occurrence=occurrence, autoconvert=False
+    )
+    if dd_update:
+        ids = imas.convert_ids(ids, connection.factory.version)
+    return ids
+
+
 def parse_slice_from_string(input_string):
     match = re.search(r"[\[\(]([-\d]*):([-\d]*):?([-\d]*)[\]\)]", input_string)
 
