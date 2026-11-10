@@ -24,6 +24,7 @@ IDStools provides a collection of command-line utilities and Python libraries fo
 - `eqdsk2ids` - Convert GEQDSK equilibrium files to IDS format
 - `idsprint` - Print IDS data values and structures
 - `idsresample` - Resample IDS data in time
+- `create_summary` - Create the summary IDS of a data entry from its other IDSs
 - `plotequilibrium` - Plot equilibrium data
 - `plotkineticprofiles` - Visualize kinetic profiles
 
