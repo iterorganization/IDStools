@@ -11,7 +11,7 @@ from idstools.compute.common import get_nearest_time
 from idstools.compute.core_profiles import CoreProfilesCompute
 from idstools.compute.edge_profiles import EdgeProfilesCompute
 from idstools.compute.equilibrium import EquilibriumCompute
-from idstools.utils.idshelper import get_available_ids_and_occurrences, get_ids_slice
+from idstools.utils.idshelper import get_available_ids_and_occurrences, get_ids_lazy, get_ids_slice
 
 logger = logging.getLogger("module")
 
@@ -187,7 +187,7 @@ class KineticProfilesCompute:
                                 self.connection.factory.version,
                             )
                         else:
-                            ids_object = self.connection.get(ids_name, occurrence=occ, lazy=True, autoconvert=False)
+                            ids_object = get_ids_lazy(self.connection, ids_name, occurrence=occ)
                         if ids_name == "edge_profiles":
                             self.edge_profiles_occurrence = occ
 
@@ -275,16 +275,17 @@ class KineticProfilesCompute:
             if not self.is_core_profiles_present:
                 self.common_time_array = self.time_array_edge_profiles
             try:
-                self.edge_profiles = get_ids_slice(
+                self.edge_profiles, self.time_index_edge_profiles = get_ids_slice(
                     self.connection,
                     "edge_profiles",
                     self.time_value_edge_profiles,
                     dd_update=self.dd_update,
                     occurrence=self.edge_profiles_occurrence,
                 )
-                self.time_index_edge_profiles = 0
             except Exception as e:
-                logger.warning(f"edge_profiles: could not load time slice {self.time_value_edge_profiles} alone ({e})")
+                logger.error(f"edge_profiles: could not read time slice {self.time_value_edge_profiles} ({e})")
+                self.is_edge_profiles_present = False
+                return
             # Read edge_profile data for this time slice
             try:
                 _ = self.edge_profiles.profiles_1d[self.time_index_edge_profiles]
@@ -707,11 +708,9 @@ class KineticProfilesCompute:
                         ):
                             species_map[ispecies] = jspecies
                 if species_map[ispecies] == -99 and self.is_core_profiles_present == 1:
-                    logger.warning(
-                        "Core_profiles species "
-                        + self.core_profiles.profiles_1d[self.time_index_core_profiles].ion[ispecies].label
-                        + " has no partner in edge_profiles!"
-                    )
+                    ion = self.core_profiles.profiles_1d[self.time_index_core_profiles].ion[ispecies]
+                    name = ion.label if hasattr(ion, "label") else ion.name  # DD3/DD4 species name differences
+                    logger.warning(f"Core_profiles species {name} has no partner in edge_profiles!")
             self.species_map = species_map
             return species_map
         return None
