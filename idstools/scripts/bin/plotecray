@@ -28,7 +28,7 @@ from idstools.utils.clihelper import (
     rcparam_parser,
 )
 from idstools.utils.idshelper import get_available_ids_and_times
-from idstools.utils.idshelper import get_ids_slice
+from idstools.utils.idshelper import get_ids_lazy, get_ids_slice
 from idstools.utils.idslogger import setup_logger
 from idstools.view.common import PlotCanvas
 from idstools.view.domain.ecstray import EcStrayView
@@ -113,25 +113,25 @@ if __name__ == "__main__":
         exit(1)
 
     try:
-        waves_time = np.asarray(conn.get("waves", lazy=True, autoconvert=False).time)
-        time_index_waves, time_value = get_nearest_time(waves_time, args.time)
-        ids_waves = get_ids_slice(conn, "waves", time_value, dd_update=args.dd_update)
-        time_index_waves = 0
+        waves_time = np.asarray(get_ids_lazy(conn, "waves").time)
+        _, time_value = get_nearest_time(waves_time, args.time)
+        ids_waves, time_index_waves = get_ids_slice(conn, "waves", time_value, dd_update=args.dd_update)
     except Exception as e:
         logger.error(f"waves ids is not present {e}")
         exit(1)
 
     try:
-        ids_core_profiles = get_ids_slice(conn, "core_profiles", time_value, dd_update=args.dd_update)
+        ids_core_profiles, _ = get_ids_slice(conn, "core_profiles", time_value, dd_update=args.dd_update)
     except Exception as e:
         logger.error(f"core_profiles ids is not present : {e}")
         exit(1)
 
     try:
-        equilibrium_time = np.asarray(conn.get("equilibrium", lazy=True, autoconvert=False).time)
+        equilibrium_time = np.asarray(get_ids_lazy(conn, "equilibrium").time)
         _, time_value_equilibrium = get_nearest_time(equilibrium_time, time_value)
-        ids_equilibrium = get_ids_slice(conn, "equilibrium", time_value_equilibrium, dd_update=args.dd_update)
-        time_index_equilibrium = 0
+        ids_equilibrium, time_index_equilibrium = get_ids_slice(
+            conn, "equilibrium", time_value_equilibrium, dd_update=args.dd_update
+        )
     except Exception as e:
         logger.error(f"equilibrium ids is not present : {e}")
         exit(1)
@@ -200,7 +200,7 @@ if __name__ == "__main__":
                         _ids_data = connection.get("wall", autoconvert=False)
                         _ids_data = imas.convert_ids(_ids_data, connection.factory.version)
                     else:
-                        _ids_data = connection.get("wall", lazy=True, autoconvert=False)
+                        _ids_data = get_ids_lazy(connection, "wall")
                     if _ids_data.ids_properties.homogeneous_time != imas.ids_defs.EMPTY_INT:
                         wallview = WallView(_ids_data)
                         wallview.view_wall(
@@ -223,7 +223,7 @@ if __name__ == "__main__":
                         _ids_data = connection.get("pf_active", autoconvert=False)
                         _ids_data = imas.convert_ids(_ids_data, connection.factory.version)
                     else:
-                        _ids_data = connection.get("pf_active", lazy=True, autoconvert=False)
+                        _ids_data = get_ids_lazy(connection, "pf_active")
                     if _ids_data.ids_properties.homogeneous_time != imas.ids_defs.EMPTY_INT:
                         view_pf_coils = PFActiveView(_ids_data)
                         view_pf_coils.view_active_pf_coils(ax_polview)

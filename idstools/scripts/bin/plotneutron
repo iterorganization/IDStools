@@ -22,7 +22,7 @@ from idstools.utils.clihelper import (
     get_file_name,
     rcparam_parser,
 )
-from idstools.utils.idshelper import get_ids_slice
+from idstools.utils.idshelper import get_ids_lazy, get_ids_slice
 from idstools.utils.idslogger import setup_logger
 from idstools.view.common import PlotCanvas
 from idstools.view.distribution_sources import DistributionSourcesView
@@ -71,11 +71,12 @@ if __name__ == "__main__":
 
         if args.dd_update:
             _, _time_value = get_nearest_time(
-                connection.get("distribution_sources", lazy=True, autoconvert=False).time, args.time
+                get_ids_lazy(connection, "distribution_sources").time,
+                args.time,
             )
-            ids_distribution_sources = get_ids_slice(connection, "distribution_sources", _time_value, dd_update=True)
+            ids_distribution_sources, _ = get_ids_slice(connection, "distribution_sources", _time_value, dd_update=True)
         else:
-            ids_distribution_sources = connection.get("distribution_sources", lazy=True, autoconvert=False)
+            ids_distribution_sources = get_ids_lazy(connection, "distribution_sources")
     except Exception as e:
         logger.error(f"distribution_sources ids is not present, detailed error: {e}")
         exit(1)

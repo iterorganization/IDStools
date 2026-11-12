@@ -23,7 +23,7 @@ from idstools.utils.clihelper import (
     get_file_name,
     rcparam_parser,
 )
-from idstools.utils.idshelper import get_ids_slice
+from idstools.utils.idshelper import get_ids_lazy, get_ids_slice
 from idstools.utils.idslogger import setup_logger
 from idstools.view.common import PlotCanvas
 from idstools.view.edge_profiles import EdgeProfilesView
@@ -94,7 +94,7 @@ if __name__ == "__main__":
                     wall_ids = mdconnection.get("wall", autoconvert=False)
                     wall_ids = imas.convert_ids(wall_ids, mdconnection.factory.version)
                 else:
-                    wall_ids = mdconnection.get("wall", lazy=True, autoconvert=False)
+                    wall_ids = get_ids_lazy(mdconnection, "wall")
             except Exception as e:
                 logger.error(
                     f"wall ids is not present in the data entry. please provide"
@@ -106,7 +106,7 @@ if __name__ == "__main__":
                     wall_ids = connection.get("wall", autoconvert=False)
                     wall_ids = imas.convert_ids(wall_ids, connection.factory.version)
                 else:
-                    wall_ids = connection.get("wall", lazy=True, autoconvert=False)
+                    wall_ids = get_ids_lazy(connection, "wall")
             except Exception as e:
                 logger.error(
                     "wall ids is not present in the data entry. please provide with"
@@ -127,7 +127,7 @@ if __name__ == "__main__":
                         break
 
     try:
-        time_array = connection.get("edge_profiles", lazy=True, autoconvert=False).time
+        time_array = get_ids_lazy(connection, "edge_profiles").time
     except Exception as e:
         logger.error(f"edge_profiles ids is not present, detailed error {e}")
         exit(1)
@@ -140,11 +140,10 @@ if __name__ == "__main__":
 
     edge_profile_ids = None
     try:
-        edge_profile_ids = get_ids_slice(connection, "edge_profiles", time_value, dd_update=args.dd_update)
+        edge_profile_ids, time_slice = get_ids_slice(connection, "edge_profiles", time_value, dd_update=args.dd_update)
     except Exception as e:
         logger.error(f"edge_profiles ids could not be read at time {time_value}, detailed error {e}")
         exit(1)
-    time_slice = 0
 
     if len(edge_profile_ids.grid_ggd) == 0:
         logger.error(

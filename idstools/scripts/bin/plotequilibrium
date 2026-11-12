@@ -28,7 +28,7 @@ from idstools.utils.clihelper import (
     get_file_name,
     rcparam_parser,
 )
-from idstools.utils.idshelper import get_ids_slice
+from idstools.utils.idshelper import get_ids_lazy, get_ids_slice
 from idstools.utils.idslogger import setup_logger
 from idstools.view.domain.mdplot import plot_machine_description
 from idstools.view.equilibrium import EquilibriumView
@@ -125,14 +125,13 @@ if __name__ == "__main__":
     if isinstance(args.md, bool) and args.md is True:
         args.md = [args.uri]
 
-    ids_lazy_equilibrium = connection.get("equilibrium", occurrence=occurrence, lazy=True, autoconvert=False)
+    ids_lazy_equilibrium = get_ids_lazy(connection, "equilibrium", occurrence=occurrence)
 
     if ids_lazy_equilibrium.time is not None and len(ids_lazy_equilibrium.time) > 0:
         _, time_value = get_nearest_time(ids_lazy_equilibrium.time, args.time)
-        ids_obj_equilibrium = get_ids_slice(
+        ids_obj_equilibrium, time_slice = get_ids_slice(
             connection, "equilibrium", time_value, dd_update=args.dd_update, occurrence=occurrence
         )
-        time_slice = 0
         view_object = EquilibriumView(ids_obj_equilibrium)
 
         if args.profiles:

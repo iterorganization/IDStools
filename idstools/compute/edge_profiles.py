@@ -17,6 +17,13 @@ import idstools.init_mendeleiev as mend
 
 logger = logging.getLogger("module")
 
+# Support DD3/DD4 species name differences
+def _species_name(node) -> str:
+    """Ion or state name: 'label' in DD3, renamed to 'name' in DD4."""
+    if hasattr(node, "label"):
+        return node.label
+    return node.name
+
 
 class EdgeProfilesCompute:
     """This class provides compute functions for edge profiles ids.
@@ -164,7 +171,7 @@ class EdgeProfilesCompute:
         """
 
         nspecies = len(self.ids.ggd[time_slice].ion)
-        labels = [self.ids.ggd[time_slice].ion[ispecies].label for ispecies in range(nspecies)]
+        labels = [_species_name(self.ids.ggd[time_slice].ion[ispecies]) for ispecies in range(nspecies)]
         logger.debug(f"Species identification :{labels}")
         return labels
 
@@ -311,7 +318,7 @@ class EdgeProfilesCompute:
             nstates = len(self.ids.ggd[time_slice].ion[species_index].state)
             states_density = [0] * nstates
             for state_index in range(nstates):
-                state_data = {"label": self.ids.ggd[time_slice].ion[species_index].state[state_index].label}
+                state_data = {"label": _species_name(self.ids.ggd[time_slice].ion[species_index].state[state_index])}
                 for xd in self.ids.ggd[time_slice].ion[species_index].state[state_index].z_average:
                     if xd.grid_subset_index == 5:
                         state_data["z_average"] = xd.values[0]
@@ -580,7 +587,7 @@ class EdgeProfilesCompute:
             if len(self.ids.ggd[time_slice].ion[ispecies].density) == 0:
                 logger.warning(
                     "edge_profiles IDS: species density not found for "
-                    + self.ids.ggd[time_slice].ion[ispecies].label
+                    + _species_name(self.ids.ggd[time_slice].ion[ispecies])
                     + ", Getting density from state."
                 )
                 density = None
