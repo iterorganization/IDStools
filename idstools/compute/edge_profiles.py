@@ -17,6 +17,7 @@ import idstools.init_mendeleiev as mend
 
 logger = logging.getLogger("module")
 
+
 # Support DD3/DD4 species name differences
 def _species_name(node) -> str:
     """Ion or state name: 'label' in DD3, renamed to 'name' in DD4."""
