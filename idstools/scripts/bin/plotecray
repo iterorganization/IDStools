@@ -8,7 +8,6 @@ import copy
 import logging
 import os
 
-import numpy as np
 
 try:
     import imaspy as imas
@@ -16,7 +15,6 @@ except ImportError:
     import imas
 from rich_argparse import RichHelpFormatter
 
-from idstools.compute.common import get_nearest_time
 from idstools.compute.waves import WavesCompute
 from idstools.database import DBMaster
 from idstools.utils.clihelper import (
@@ -113,24 +111,20 @@ if __name__ == "__main__":
         exit(1)
 
     try:
-        waves_time = np.asarray(get_ids_lazy(conn, "waves").time)
-        _, time_value = get_nearest_time(waves_time, args.time)
-        ids_waves, time_index_waves = get_ids_slice(conn, "waves", time_value, dd_update=args.dd_update)
+        ids_waves, time_index_waves, time_value = get_ids_slice(conn, "waves", args.time, dd_update=args.dd_update)
     except Exception as e:
         logger.error(f"waves ids is not present {e}")
         exit(1)
 
     try:
-        ids_core_profiles, _ = get_ids_slice(conn, "core_profiles", time_value, dd_update=args.dd_update)
+        ids_core_profiles, _, _ = get_ids_slice(conn, "core_profiles", time_value, dd_update=args.dd_update)
     except Exception as e:
         logger.error(f"core_profiles ids is not present : {e}")
         exit(1)
 
     try:
-        equilibrium_time = np.asarray(get_ids_lazy(conn, "equilibrium").time)
-        _, time_value_equilibrium = get_nearest_time(equilibrium_time, time_value)
-        ids_equilibrium, time_index_equilibrium = get_ids_slice(
-            conn, "equilibrium", time_value_equilibrium, dd_update=args.dd_update
+        ids_equilibrium, time_index_equilibrium, time_value_equilibrium = get_ids_slice(
+            conn, "equilibrium", time_value, dd_update=args.dd_update
         )
     except Exception as e:
         logger.error(f"equilibrium ids is not present : {e}")

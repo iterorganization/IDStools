@@ -126,7 +126,7 @@ if __name__ == "__main__":
             )
         logger.info(f"edge_profiles Time {time_value_edge_profiles}  Index {time_slice_edge_profiles}")
         edge_profiles_time = np.asarray(edge_profiles_ids.time)
-        edge_profiles_ids, edge_profiles_index = get_ids_slice(
+        edge_profiles_ids, edge_profiles_index, _ = get_ids_slice(
             connection, "edge_profiles", time_value_edge_profiles, dd_update=args.dd_update
         )
 
@@ -200,7 +200,7 @@ if __name__ == "__main__":
                 if time_slice_edge_profiles + counter >= 0 and time_slice_edge_profiles + counter < time_slices_count:
                     index_list.append(time_slice_edge_profiles + counter)
             for itime_slice in index_list:
-                edge_profiles, islice = get_ids_slice(
+                edge_profiles, islice, _ = get_ids_slice(
                     connection, "edge_profiles", edge_profiles_time[itime_slice], dd_update=args.dd_update
                 )
                 index = 4

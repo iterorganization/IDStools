@@ -269,21 +269,18 @@ class KineticProfilesCompute:
         if self.is_edge_profiles_present:
             self.time_array_length_edge_profiles = len(self.edge_profiles.time)
             self.time_array_edge_profiles = np.asarray(self.edge_profiles.time)
-            self.time_index_edge_profiles, self.time_value_edge_profiles = get_nearest_time(
-                self.time_array_edge_profiles, time_slice
-            )
             if not self.is_core_profiles_present:
                 self.common_time_array = self.time_array_edge_profiles
             try:
-                self.edge_profiles, self.time_index_edge_profiles = get_ids_slice(
+                self.edge_profiles, self.time_index_edge_profiles, self.time_value_edge_profiles = get_ids_slice(
                     self.connection,
                     "edge_profiles",
-                    self.time_value_edge_profiles,
+                    time_slice,
                     dd_update=self.dd_update,
                     occurrence=self.edge_profiles_occurrence,
                 )
             except Exception as e:
-                logger.error(f"edge_profiles: could not read time slice {self.time_value_edge_profiles} ({e})")
+                logger.error(f"edge_profiles: could not read time slice {time_slice} ({e})")
                 self.is_edge_profiles_present = False
                 return
             # Read edge_profile data for this time slice

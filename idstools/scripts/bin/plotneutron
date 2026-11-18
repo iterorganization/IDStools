@@ -70,11 +70,9 @@ if __name__ == "__main__":
     try:
 
         if args.dd_update:
-            _, _time_value = get_nearest_time(
-                get_ids_lazy(connection, "distribution_sources").time,
-                args.time,
+            ids_distribution_sources, _, _ = get_ids_slice(
+                connection, "distribution_sources", args.time, dd_update=True
             )
-            ids_distribution_sources, _ = get_ids_slice(connection, "distribution_sources", _time_value, dd_update=True)
         else:
             ids_distribution_sources = get_ids_lazy(connection, "distribution_sources")
     except Exception as e:

@@ -60,8 +60,7 @@ if __name__ == "__main__":
     try:
 
         if args.dd_update:
-            _, _time_value = get_nearest_time(get_ids_lazy(connection, "core_profiles").time, args.time)
-            ids_core_profiles, _ = get_ids_slice(connection, "core_profiles", _time_value, dd_update=True)
+            ids_core_profiles, _, _ = get_ids_slice(connection, "core_profiles", args.time, dd_update=True)
         else:
             ids_core_profiles = get_ids_lazy(connection, "core_profiles")
     except Exception as e:

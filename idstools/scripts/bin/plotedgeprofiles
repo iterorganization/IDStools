@@ -13,7 +13,6 @@ except ImportError:
     import imas
 from rich_argparse import RichHelpFormatter
 
-from idstools.compute.common import get_nearest_time
 from idstools.compute.wall import WallCompute
 from idstools.database import DBMaster
 from idstools.utils.clihelper import (
@@ -136,13 +135,13 @@ if __name__ == "__main__":
         logger.error("edge_profiles ids : time is not present")
         exit(1)
 
-    _, time_value = get_nearest_time(time_array, args.time)
-
     edge_profile_ids = None
     try:
-        edge_profile_ids, time_slice = get_ids_slice(connection, "edge_profiles", time_value, dd_update=args.dd_update)
+        edge_profile_ids, time_slice, time_value = get_ids_slice(
+            connection, "edge_profiles", args.time, dd_update=args.dd_update
+        )
     except Exception as e:
-        logger.error(f"edge_profiles ids could not be read at time {time_value}, detailed error {e}")
+        logger.error(f"edge_profiles ids could not be read at time {args.time}, detailed error {e}")
         exit(1)
 
     if len(edge_profile_ids.grid_ggd) == 0:

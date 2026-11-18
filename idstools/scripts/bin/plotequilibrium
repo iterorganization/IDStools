@@ -17,7 +17,6 @@ from idstools.view.common import PlotCanvas
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from rich_argparse import RichHelpFormatter
 
-from idstools.compute.common import get_nearest_time
 from idstools.compute.equilibrium import EquilibriumCompute
 from idstools.database import DBMaster
 from idstools.machinedescription import get_md_data
@@ -128,9 +127,8 @@ if __name__ == "__main__":
     ids_lazy_equilibrium = get_ids_lazy(connection, "equilibrium", occurrence=occurrence)
 
     if ids_lazy_equilibrium.time is not None and len(ids_lazy_equilibrium.time) > 0:
-        _, time_value = get_nearest_time(ids_lazy_equilibrium.time, args.time)
-        ids_obj_equilibrium, time_slice = get_ids_slice(
-            connection, "equilibrium", time_value, dd_update=args.dd_update, occurrence=occurrence
+        ids_obj_equilibrium, time_slice, time_value = get_ids_slice(
+            connection, "equilibrium", args.time, dd_update=args.dd_update, occurrence=occurrence
         )
         view_object = EquilibriumView(ids_obj_equilibrium)
 

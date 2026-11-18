@@ -73,14 +73,22 @@ def get_ids_lazy(connection, ids_name: str, occurrence: int = 0, ignore_unknown_
 
 
 def get_ids_slice(connection, ids_name: str, time_value: float, dd_update: bool = False, occurrence: int = 0):
-    """Load the time slice of an IDS closest to time_value.
+    """Load the time slice of an IDS closest to time_value (a negative time_value selects the middle slice).
 
-    Returns (ids, index), where ids.time[index] is the requested slice.
+    Returns (ids, index, time_value), where time_value = ids.time[index] is the time of the loaded slice.
     HDF5 and MDSplus use get_slice (index is 0). netCDF and ASCII have no get_slice,
     so the whole IDS is read and index points to the nearest time.
     """
+    is_ascii = connection.uri.startswith("imas:ascii")
     # a lazy IDS cannot be converted, and ASCII has no lazy loading
-    lazy = not dd_update and not connection.uri.startswith("imas:ascii")
+    lazy = not dd_update and not is_ascii
+
+    if time_value < 0:
+        # default: middle slice, so the time array is needed
+        time_array = connection.get(ids_name, occurrence=occurrence, lazy=not is_ascii, autoconvert=False).time
+        if len(time_array) > 0:
+            time_value = time_array[len(time_array) // 2]
+
     try:
         ids = connection.get_slice(
             ids_name,
@@ -92,11 +100,17 @@ def get_ids_slice(connection, ids_name: str, time_value: float, dd_update: bool 
         )
         index = 0
     except Exception:
+        # netCDF and ASCII have no get_slice
         ids = connection.get(ids_name, occurrence=occurrence, lazy=lazy, autoconvert=False)
-        index = int(np.argmin(np.abs(np.asarray(ids.time) - time_value)))
+        index = int(np.argmin(np.abs(np.asarray(ids.time) - time_value))) if len(ids.time) > 0 else 0
     if dd_update:
         ids = imas.convert_ids(ids, connection.factory.version)
-    return ids, index
+
+    # ids.time is empty for heterogeneous-time IDSs
+    if len(ids.time) > 0:
+        time_value = float(ids.time[index])
+    logger.info(f"{ids_name}: time = {time_value:.3f} s, index = {index}")
+    return ids, index, time_value
 
 
 def parse_slice_from_string(input_string):
