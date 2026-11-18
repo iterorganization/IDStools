@@ -412,83 +412,32 @@ class KineticProfilesCompute:
                     rho_tor_norm[self.nrho],
                 )
             else:
-                if (
-                    self.edge_profiles.grid_ggd[self.time_index_edge_profiles].grid_subset[self.gset].dimension
-                    == imas.ids_defs.EMPTY_INT
-                ):
+                grid = self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
+                subset = grid.grid_subset[self.gset]
+                nodes = grid.space[0].objects_per_dimension[0].object
+                edges = grid.space[0].objects_per_dimension[1].object
+
+                # Use grid_subset.dimension
+                dimension = subset.element[0].object[0].dimension if len(subset.element) > 0 else subset.dimension
+                if dimension not in (1, 2):
+                    dimension = subset.dimension
+                if dimension == imas.ids_defs.EMPTY_INT:
                     logger.debug("Dimensionality of Outer Midplane GGD subset is not defined !")
                     logger.debug("Assuming the grid subset is made of edges (dimensionality 2).")
-                if self.edge_profiles.grid_ggd[self.time_index_edge_profiles].grid_subset[self.gset].dimension == 1:
+                    dimension = 2
+
+                if dimension in (1, 2):
                     for i in range(self.erho):
-                        ielem = (
-                            self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .grid_subset[self.gset]
-                            .element[i]
-                            .object[0]
-                            .index
-                        )
-                        i1 = (
-                            self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .space[0]
-                            .objects_per_dimension[0]
-                            .object[ielem - 1]
-                            .nodes[0]
-                        )
-                        rho_tor_norm[self.nrho + i] = (
-                            self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .space[0]
-                            .objects_per_dimension[0]
-                            .object[i1 - 1]
-                            .geometry[0]
-                        )
-                        xbeg = min(xbeg, rho_tor_norm[0])
-                        xend = max(xend, rho_tor_norm[self.nrho + i])
-                elif (
-                    self.edge_profiles.grid_ggd[self.time_index_edge_profiles].grid_subset[self.gset].dimension == 2
-                    or self.edge_profiles.grid_ggd[self.time_index_edge_profiles].grid_subset[self.gset].dimension
-                    == imas.ids_defs.EMPTY_INT
-                ) and self.is_edge_profiles_present:
-                    for i in range(self.erho):
-                        ielem = (
-                            self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .grid_subset[self.gset]
-                            .element[i]
-                            .object[0]
-                            .index
-                        )
-                        i1 = (
-                            self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .space[0]
-                            .objects_per_dimension[1]
-                            .object[ielem - 1]
-                            .nodes[0]
-                        )
-                        i2 = (
-                            self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .space[0]
-                            .objects_per_dimension[1]
-                            .object[ielem - 1]
-                            .nodes[1]
-                        )
-                        rho_tor_norm[self.nrho + i] = (
-                            self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .space[0]
-                            .objects_per_dimension[0]
-                            .object[i1 - 1]
-                            .geometry[0]
-                            + self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .space[0]
-                            .objects_per_dimension[0]
-                            .object[i2 - 1]
-                            .geometry[0]
-                        ) / 2
+                        ielem = subset.element[i].object[0].index
+                        if dimension == 1:
+                            rho_tor_norm[self.nrho + i] = nodes[ielem - 1].geometry[0]
+                        else:
+                            i1, i2 = edges[ielem - 1].nodes[0], edges[ielem - 1].nodes[1]
+                            rho_tor_norm[self.nrho + i] = (nodes[i1 - 1].geometry[0] + nodes[i2 - 1].geometry[0]) / 2
                         xbeg = min(xbeg, rho_tor_norm[0])
                         xend = max(xend, rho_tor_norm[self.nrho + i])
                 else:
-                    logger.warning(
-                        f"Unexpected dimensionality of Outer Midplane GGD subset :"
-                        f"{self.edge_profiles.grid_ggd[self.time_index_edge_profiles].grid_subset[self.gset].dimension}"
-                    )
+                    logger.warning(f"Unexpected dimensionality of Outer Midplane GGD subset : {dimension}")
                     logger.warning("Abandoning edge plots !")
                     self.is_edge_profiles_present = False
         return {"xbeg": xbeg, "xend": xend, "rho_tor_norm": rho_tor_norm}
@@ -1827,7 +1776,7 @@ class KineticProfilesCompute:
                                 self.profiles["n_species"][self.species[ispecies]]["vphi_e"][0 : self.erho - 1]
                             ):
                                 max_vphi = max(
-                                    self.profiles["n_species"][self.pecies[ispecies]]["vphi_e"][0 : self.erho - 1]
+                                    self.profiles["n_species"][self.species[ispecies]]["vphi_e"][0 : self.erho - 1]
                                 )
                             if min_vphi > min(
                                 self.profiles["n_species"][self.species[ispecies]]["vphi_e"][0 : self.erho - 1]
@@ -1855,7 +1804,7 @@ class KineticProfilesCompute:
                                 self.profiles["n_species"][self.species[ispecies]]["vpol_e"][0 : self.erho - 1]
                             ):
                                 max_vpol = max(
-                                    self.profiles["n_species"][self.pecies[ispecies]]["vpol_e"][0 : self.erho - 1]
+                                    self.profiles["n_species"][self.species[ispecies]]["vpol_e"][0 : self.erho - 1]
                                 )
                             if min_vpol > min(
                                 self.profiles["n_species"][self.species[ispecies]]["vpol_e"][0 : self.erho - 1]
