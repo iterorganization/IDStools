@@ -73,11 +73,11 @@ def get_ids_lazy(connection, ids_name: str, occurrence: int = 0, ignore_unknown_
 
 
 def get_ids_slice(connection, ids_name: str, time_value: float, dd_update: bool = False, occurrence: int = 0):
-    """Load the time slice of an IDS closest to time_value (a negative time_value selects the middle slice).
+    """Load the last time slice of an IDS at or before time_value (a negative time_value selects the middle slice).
 
     Returns (ids, index, time_value), where time_value = ids.time[index] is the time of the loaded slice.
     HDF5 and MDSplus use get_slice (index is 0). netCDF and ASCII have no get_slice,
-    so the whole IDS is read and index points to the nearest time.
+    so the whole IDS is read and index points to the same slice.
     """
     is_ascii = connection.uri.startswith("imas:ascii")
     # a lazy IDS cannot be converted, and ASCII has no lazy loading
@@ -93,7 +93,7 @@ def get_ids_slice(connection, ids_name: str, time_value: float, dd_update: bool 
         ids = connection.get_slice(
             ids_name,
             float(time_value),
-            imas.ids_defs.CLOSEST_INTERP,
+            imas.ids_defs.PREVIOUS_INTERP,
             occurrence=occurrence,
             lazy=lazy,
             autoconvert=False,
@@ -102,7 +102,7 @@ def get_ids_slice(connection, ids_name: str, time_value: float, dd_update: bool 
     except Exception:
         # netCDF and ASCII have no get_slice
         ids = connection.get(ids_name, occurrence=occurrence, lazy=lazy, autoconvert=False)
-        index = int(np.argmin(np.abs(np.asarray(ids.time) - time_value))) if len(ids.time) > 0 else 0
+        index = max(int(np.searchsorted(np.asarray(ids.time), time_value, side="right")) - 1, 0)
     if dd_update:
         ids = imas.convert_ids(ids, connection.factory.version)
 
