@@ -7,11 +7,10 @@ try:
 except ImportError:
     import imas
 
-from idstools.compute.common import get_nearest_time
 from idstools.compute.core_profiles import CoreProfilesCompute
 from idstools.compute.edge_profiles import EdgeProfilesCompute
 from idstools.compute.equilibrium import EquilibriumCompute
-from idstools.utils.idshelper import get_available_ids_and_occurrences
+from idstools.utils.idshelper import get_available_ids_and_occurrences, get_ids_lazy, get_ids_slice
 
 logger = logging.getLogger("module")
 
@@ -25,7 +24,10 @@ class KineticProfilesCompute:
         self.edge_required = None
 
         self.core_profiles = None
+        self.core_profiles_traces = None  # full core_profiles IDS, for the waveforms
         self.edge_profiles = None
+        self.occurrence = {}  # occurrence used for each IDS
+        self.dd_update = False
         self.equilibrium = None
 
         self.is_core_profiles_present = True
@@ -102,6 +104,7 @@ class KineticProfilesCompute:
     def analyze(self, connection, time_value, edge_required, dd_update=False):
         self.connection = connection
         self.edge_required = edge_required
+        self.dd_update = dd_update
         self.available_ids = get_available_ids_and_occurrences(connection)
         self.initialised = self.check_idsses(dd_update)
         self.fill_idses(time_value)
@@ -184,7 +187,8 @@ class KineticProfilesCompute:
                                 self.connection.factory.version,
                             )
                         else:
-                            ids_object = self.connection.get(ids_name, occurrence=occ, lazy=True, autoconvert=False)
+                            ids_object = get_ids_lazy(self.connection, ids_name, occurrence=occ)
+                        self.occurrence[ids_name] = occ
 
                         if ids_object.time is not None:
                             if len(ids_object.time) > 0:
@@ -214,7 +218,7 @@ class KineticProfilesCompute:
         self.core_profiles, self.is_core_profiles_present = self.get_ids("core_profiles", dd_update)
 
         if self.edge_required:
-            self.edge_profiles, self.is_edge_profiles_present = self.get_ids("edge_profiles", dd_update)
+            self.edge_profiles, self.is_edge_profiles_present = self.get_ids("edge_profiles", dd_update=False)
             if self.is_core_profiles_present:
                 logger.info("Found adjoining edge_profiles. Will attempt to add to plots.")
             else:
@@ -238,35 +242,56 @@ class KineticProfilesCompute:
                 profiles and data based on a given time slice. The `time_slice` parameter is used to specify a
                 part``icular time at which the data should be retrieved and processed.
         """
-        # Search for adequate time slice for display
+        # The full core_profiles IDS is kept for the waveforms (all time slices),
+        # the profiles use only the slice at the requested time
         if self.is_core_profiles_present:
+            self.core_profiles_traces = self.core_profiles
             self.time_array_length_core_profiles = len(self.core_profiles.time)
-            self.time_array_core_profiles = self.core_profiles.time
-            self.time_index_core_profiles, self.time_value_core_profiles = get_nearest_time(
-                self.time_array_core_profiles, time_slice
+            self.time_array_core_profiles = np.asarray(self.core_profiles.time)
+            self.common_time_length = self.time_array_length_core_profiles
+            self.common_time_array = self.time_array_core_profiles
+            self.core_profiles, self.time_index_core_profiles, self.time_value_core_profiles = get_ids_slice(
+                self.connection,
+                "core_profiles",
+                time_slice,
+                dd_update=self.dd_update,
+                occurrence=self.occurrence["core_profiles"],
             )
-            self.common_time_length = len(self.core_profiles.time)
-            self.common_time_array = self.core_profiles.time
+            self.common_time_value = self.time_value_core_profiles
         else:
             self.common_time_length = len(self.edge_profiles.time)
-            self.common_time_array = self.edge_profiles.time
+            self.common_time_array = np.asarray(self.edge_profiles.time)
 
-        self.common_time_index, self.common_time_value = get_nearest_time(self.common_time_array, time_slice)
         # Read equilibrium data for this time slice if present
         if self.is_equilibrium_present:
             self.time_array_length_equilibrium = len(self.equilibrium.time)
-            self.time_array_equilibrium = self.equilibrium.time
-            self.time_index_equilibrium, self.time_value_equilibrium = get_nearest_time(
-                self.time_array_equilibrium, time_slice
+            self.time_array_equilibrium = np.asarray(self.equilibrium.time)
+            self.equilibrium, self.time_index_equilibrium, self.time_value_equilibrium = get_ids_slice(
+                self.connection,
+                "equilibrium",
+                time_slice,
+                dd_update=self.dd_update,
+                occurrence=self.occurrence["equilibrium"],
             )
-        # Add 1D-profiles edge data if present
 
+        # Add 1D-profiles edge data if present
         if self.is_edge_profiles_present:
             self.time_array_length_edge_profiles = len(self.edge_profiles.time)
-            self.time_array_edge_profiles = self.edge_profiles.time
-            self.time_index_edge_profiles, self.time_value_edge_profiles = get_nearest_time(
-                self.time_array_edge_profiles, time_slice
-            )
+            self.time_array_edge_profiles = np.asarray(self.edge_profiles.time)
+            try:
+                self.edge_profiles, self.time_index_edge_profiles, self.time_value_edge_profiles = get_ids_slice(
+                    self.connection,
+                    "edge_profiles",
+                    time_slice,
+                    dd_update=self.dd_update,
+                    occurrence=self.occurrence["edge_profiles"],
+                )
+            except Exception as e:
+                logger.error(f"edge_profiles: could not read time slice {time_slice} ({e})")
+                self.is_edge_profiles_present = False
+                return
+            if not self.is_core_profiles_present:
+                self.common_time_value = self.time_value_edge_profiles
             # Read edge_profile data for this time slice
             try:
                 _ = self.edge_profiles.profiles_1d[self.time_index_edge_profiles]
@@ -394,83 +419,32 @@ class KineticProfilesCompute:
                     rho_tor_norm[self.nrho],
                 )
             else:
-                if (
-                    self.edge_profiles.grid_ggd[self.time_index_edge_profiles].grid_subset[self.gset].dimension
-                    == imas.ids_defs.EMPTY_INT
-                ):
+                grid = self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
+                subset = grid.grid_subset[self.gset]
+                nodes = grid.space[0].objects_per_dimension[0].object
+                edges = grid.space[0].objects_per_dimension[1].object
+
+                # Use grid_subset.dimension
+                dimension = subset.element[0].object[0].dimension if len(subset.element) > 0 else subset.dimension
+                if dimension not in (1, 2):
+                    dimension = subset.dimension
+                if dimension == imas.ids_defs.EMPTY_INT:
                     logger.debug("Dimensionality of Outer Midplane GGD subset is not defined !")
                     logger.debug("Assuming the grid subset is made of edges (dimensionality 2).")
-                if self.edge_profiles.grid_ggd[self.time_index_edge_profiles].grid_subset[self.gset].dimension == 1:
+                    dimension = 2
+
+                if dimension in (1, 2):
                     for i in range(self.erho):
-                        ielem = (
-                            self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .grid_subset[self.gset]
-                            .element[i]
-                            .object[0]
-                            .index
-                        )
-                        i1 = (
-                            self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .space[0]
-                            .objects_per_dimension[0]
-                            .object[ielem - 1]
-                            .nodes[0]
-                        )
-                        rho_tor_norm[self.nrho + i] = (
-                            self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .space[0]
-                            .objects_per_dimension[0]
-                            .object[i1 - 1]
-                            .geometry[0]
-                        )
-                        xbeg = min(xbeg, rho_tor_norm[0])
-                        xend = max(xend, rho_tor_norm[self.nrho + i])
-                elif (
-                    self.edge_profiles.grid_ggd[self.time_index_edge_profiles].grid_subset[self.gset].dimension == 2
-                    or self.edge_profiles.grid_ggd[self.time_index_edge_profiles].grid_subset[self.gset].dimension
-                    == imas.ids_defs.EMPTY_INT
-                ) and self.is_edge_profiles_present:
-                    for i in range(self.erho):
-                        ielem = (
-                            self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .grid_subset[self.gset]
-                            .element[i]
-                            .object[0]
-                            .index
-                        )
-                        i1 = (
-                            self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .space[0]
-                            .objects_per_dimension[1]
-                            .object[ielem - 1]
-                            .nodes[0]
-                        )
-                        i2 = (
-                            self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .space[0]
-                            .objects_per_dimension[1]
-                            .object[ielem - 1]
-                            .nodes[1]
-                        )
-                        rho_tor_norm[self.nrho + i] = (
-                            self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .space[0]
-                            .objects_per_dimension[0]
-                            .object[i1 - 1]
-                            .geometry[0]
-                            + self.edge_profiles.grid_ggd[self.time_index_edge_profiles]
-                            .space[0]
-                            .objects_per_dimension[0]
-                            .object[i2 - 1]
-                            .geometry[0]
-                        ) / 2
+                        ielem = subset.element[i].object[0].index
+                        if dimension == 1:
+                            rho_tor_norm[self.nrho + i] = nodes[ielem - 1].geometry[0]
+                        else:
+                            i1, i2 = edges[ielem - 1].nodes[0], edges[ielem - 1].nodes[1]
+                            rho_tor_norm[self.nrho + i] = (nodes[i1 - 1].geometry[0] + nodes[i2 - 1].geometry[0]) / 2
                         xbeg = min(xbeg, rho_tor_norm[0])
                         xend = max(xend, rho_tor_norm[self.nrho + i])
                 else:
-                    logger.warning(
-                        f"Unexpected dimensionality of Outer Midplane GGD subset :"
-                        f"{self.edge_profiles.grid_ggd[self.time_index_edge_profiles].grid_subset[self.gset].dimension}"
-                    )
+                    logger.warning(f"Unexpected dimensionality of Outer Midplane GGD subset : {dimension}")
                     logger.warning("Abandoning edge plots !")
                     self.is_edge_profiles_present = False
         return {"xbeg": xbeg, "xend": xend, "rho_tor_norm": rho_tor_norm}
@@ -689,11 +663,9 @@ class KineticProfilesCompute:
                         ):
                             species_map[ispecies] = jspecies
                 if species_map[ispecies] == -99 and self.is_core_profiles_present == 1:
-                    logger.warning(
-                        "Core_profiles species "
-                        + self.core_profiles.profiles_1d[self.time_index_core_profiles].ion[ispecies].label
-                        + " has no partner in edge_profiles!"
-                    )
+                    ion = self.core_profiles.profiles_1d[self.time_index_core_profiles].ion[ispecies]
+                    name = ion.label if hasattr(ion, "label") else ion.name  # DD3/DD4 species name differences
+                    logger.warning(f"Core_profiles species {name} has no partner in edge_profiles!")
             self.species_map = species_map
             return species_map
         return None
@@ -721,15 +693,16 @@ class KineticProfilesCompute:
                 ):
                     nrho = len(self.equilibrium.time_slice[self.time_index_equilibrium].profiles_1d.rho_tor_norm)
                 else:
-                    mrho = self.equlibrium_compute.getmrho()
+                    mrho = self.equlibrium_compute.getmrho(self.time_index_equilibrium)
                     nrho = len(self.equilibrium.time_slice[self.time_index_equilibrium].profiles_1d.rho_tor_norm) - mrho
 
         erho = 0
         if self.is_edge_profiles_present:
             if not self.r_out_graph:
-                erho = self.core_profiles_compute.getnrho()
-                if nrho is None or nrho == 0:
+                erho = self.edge_profiles_compute.getnrho(self.time_index_edge_profiles)
+                if erho is None or erho == 0:
                     logger.warning("edge_profiles.profiles_1d[:].grid.rho_tor_norm and rho_tor are empty.")
+                    erho = 0
             else:
                 erho = len(self.edge_profiles.grid_ggd[self.time_index_edge_profiles].grid_subset[self.gset].element)
         return nrho, mrho, erho
@@ -828,7 +801,7 @@ class KineticProfilesCompute:
                 electron_density[i] = _density[i]
         if self.is_edge_profiles_present:
             if not self.r_out_graph:
-                _density = self.core_profiles.profiles_1d[self.time_index_edge_profiles].electrons.density.value
+                _density = self.edge_profiles.profiles_1d[self.time_index_edge_profiles].electrons.density.value
                 if len(_density) < 1:
                     logger.warning("edge_profiles.profiles_1d[:].electrons.density could not be read.")
                     _density = np.asarray([np.nan] * self.erho)
@@ -1098,11 +1071,17 @@ class KineticProfilesCompute:
                             for istate in range(
                                 len(self.edge_profiles.ggd[self.time_index_edge_profiles].ion[jspecies].state)
                             ):
-                                _density = (
+                                # ggd ion.state.density is an array of GGD scalars (one per grid subset)
+                                _state_density = (
                                     self.edge_profiles.ggd[self.time_index_edge_profiles]
                                     .ion[jspecies]
                                     .state[istate]
-                                    .density.value
+                                    .density
+                                )
+                                _density = (
+                                    np.asarray(_state_density[self.gset].values)
+                                    if self.gset < len(_state_density)
+                                    else np.asarray([])
                                 )
                                 if len(_density) < 1:
                                     logger.warning(
@@ -1112,7 +1091,7 @@ class KineticProfilesCompute:
                                     _density = np.asarray([0] * self.erho)
                                 for i in range(self.erho):
                                     ion_density[ispecies][self.nrho + i] = (
-                                        ion_density[ispecies][self.nrho + i] + _density.values[i]
+                                        ion_density[ispecies][self.nrho + i] + _density[i]
                                     )
         return ion_density
 
@@ -1802,7 +1781,7 @@ class KineticProfilesCompute:
                                 self.profiles["n_species"][self.species[ispecies]]["vphi_e"][0 : self.erho - 1]
                             ):
                                 max_vphi = max(
-                                    self.profiles["n_species"][self.pecies[ispecies]]["vphi_e"][0 : self.erho - 1]
+                                    self.profiles["n_species"][self.species[ispecies]]["vphi_e"][0 : self.erho - 1]
                                 )
                             if min_vphi > min(
                                 self.profiles["n_species"][self.species[ispecies]]["vphi_e"][0 : self.erho - 1]
@@ -1830,7 +1809,7 @@ class KineticProfilesCompute:
                                 self.profiles["n_species"][self.species[ispecies]]["vpol_e"][0 : self.erho - 1]
                             ):
                                 max_vpol = max(
-                                    self.profiles["n_species"][self.pecies[ispecies]]["vpol_e"][0 : self.erho - 1]
+                                    self.profiles["n_species"][self.species[ispecies]]["vpol_e"][0 : self.erho - 1]
                                 )
                             if min_vpol > min(
                                 self.profiles["n_species"][self.species[ispecies]]["vpol_e"][0 : self.erho - 1]
@@ -1892,7 +1871,7 @@ class KineticProfilesCompute:
             electrons_temperature = np.array([])
             for i, _ in enumerate(self.time_array_core_profiles):
                 electrons_temperature = np.append(
-                    electrons_temperature, self.core_profiles.profiles_1d[i].electrons.temperature[0]
+                    electrons_temperature, self.core_profiles_traces.profiles_1d[i].electrons.temperature[0]
                 )
 
             waveform["te"]["central"] = electrons_temperature * 1e-3
@@ -1901,7 +1880,7 @@ class KineticProfilesCompute:
             if self.ti_flag == 1:
                 t_i_average = np.array([])
                 for i, _ in enumerate(self.time_array_core_profiles):
-                    t_i_average = np.append(t_i_average, self.core_profiles.profiles_1d[i].t_i_average[0])
+                    t_i_average = np.append(t_i_average, self.core_profiles_traces.profiles_1d[i].t_i_average[0])
                 waveform["ti"]["central"] = t_i_average * 1e-3
                 # (
                 #     self.connection.partial_get("core_profiles", "profiles_1d(:)/t_i_average(0)") * 1e-3
@@ -1911,7 +1890,7 @@ class KineticProfilesCompute:
                     ion_temperature = np.array([])
                     for i, _ in enumerate(self.time_array_core_profiles):
                         ion_temperature = np.append(
-                            ion_temperature, self.core_profiles.profiles_1d[i].ion[0].temperature[0]
+                            ion_temperature, self.core_profiles_traces.profiles_1d[i].ion[0].temperature[0]
                         )
 
                     waveform["ti"]["central"] = ion_temperature * 1e-3
@@ -1924,7 +1903,9 @@ class KineticProfilesCompute:
 
             electrons_density = np.array([])
             for i, _ in enumerate(self.time_array_core_profiles):
-                electrons_density = np.append(electrons_density, self.core_profiles.profiles_1d[i].electrons.density[0])
+                electrons_density = np.append(
+                    electrons_density, self.core_profiles_traces.profiles_1d[i].electrons.density[0]
+                )
 
             waveform["ne"]["central"] = electrons_density
             # self.connection.partial_get(
@@ -1932,7 +1913,7 @@ class KineticProfilesCompute:
             # )
             zeff = np.array([])
             for i, _ in enumerate(self.time_array_core_profiles):
-                zeff = np.append(zeff, self.core_profiles.profiles_1d[i].zeff[0])
+                zeff = np.append(zeff, self.core_profiles_traces.profiles_1d[i].zeff[0])
 
             waveform["zeff"]["central"] = zeff
             # self.connection.partial_get("core_profiles", "profiles_1d(:)/zeff(0)")
@@ -1954,7 +1935,7 @@ class KineticProfilesCompute:
                             ion_density = np.array([])
                             for i, _ in enumerate(self.time_array_core_profiles):
                                 ion_density = np.append(
-                                    ion_density, self.core_profiles.profiles_1d[i].ion[ispecies].density[0]
+                                    ion_density, self.core_profiles_traces.profiles_1d[i].ion[ispecies].density[0]
                                 )
 
                             waveform["n_species"][self.species[ispecies]]["density"]["central"] = ion_density
@@ -1969,7 +1950,7 @@ class KineticProfilesCompute:
                                 for i, _ in enumerate(self.time_array_core_profiles):
                                     velocity_poloidal = np.append(
                                         velocity_poloidal,
-                                        self.core_profiles.profiles_1d[i].ion[ispecies].velocity.poloidal[0],
+                                        self.core_profiles_traces.profiles_1d[i].ion[ispecies].velocity.poloidal[0],
                                     )
                                 waveform["n_species"][self.species[ispecies]]["vpol"]["central"] = velocity_poloidal
                                 # (
@@ -1982,7 +1963,8 @@ class KineticProfilesCompute:
                                 velocity_pol = np.array([])
                                 for i, _ in enumerate(self.time_array_core_profiles):
                                     velocity_pol = np.append(
-                                        velocity_pol, self.core_profiles.profiles_1d[i].ion[ispecies].velocity_pol[0]
+                                        velocity_pol,
+                                        self.core_profiles_traces.profiles_1d[i].ion[ispecies].velocity_pol[0],
                                     )
                                 waveform["n_species"][self.species[ispecies]]["vpol"]["central"] = velocity_pol
                                 # (
@@ -1996,7 +1978,7 @@ class KineticProfilesCompute:
                                 for i, _ in enumerate(self.time_array_core_profiles):
                                     velocity_toroidal = np.append(
                                         velocity_toroidal,
-                                        self.core_profiles.profiles_1d[i].ion[ispecies].velocity.toroidal[0],
+                                        self.core_profiles_traces.profiles_1d[i].ion[ispecies].velocity.toroidal[0],
                                     )
                                 waveform["n_species"][self.species[ispecies]]["vphi"]["central"] = velocity_toroidal
                                 # (
@@ -2009,7 +1991,8 @@ class KineticProfilesCompute:
                                 velocity_tor = np.array([])
                                 for i, _ in enumerate(self.time_array_core_profiles):
                                     velocity_tor = np.append(
-                                        velocity_tor, self.core_profiles.profiles_1d[i].ion[ispecies].velocity_tor[0]
+                                        velocity_tor,
+                                        self.core_profiles_traces.profiles_1d[i].ion[ispecies].velocity_tor[0],
                                     )
                                 waveform["n_species"][self.species[ispecies]]["vphi"]["central"] = velocity_tor
                                 # (

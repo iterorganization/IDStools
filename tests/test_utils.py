@@ -191,7 +191,9 @@ def run_idstools_script(script_name, args, timeout=30):
 
     # Increase timeout to 120 seconds for data dictionary parsing
     # (especially when dealing with multiple DD versions like DD3 and DD4)
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    # wide terminal, so rich does not wrap log messages the tests search for
+    env = {**os.environ, "COLUMNS": "300"}
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120, env=env)
 
     logger.debug(f"\nReturn code: {result.returncode}")
     if result.stdout:
