@@ -60,9 +60,17 @@ def parse_uri(uri: str):
     return result
 
 
+def is_ascii(connection) -> bool:
+    """True if the data entry uses the ASCII backend (which has no lazy loading)."""
+    if connection.uri is None:
+        # legacy DBEntry has no uri
+        return connection.backend_id == imas.ids_defs.ASCII_BACKEND
+    return connection.uri.startswith("imas:ascii")
+
+
 def get_ids_lazy(connection, ids_name: str, occurrence: int = 0, ignore_unknown_dd_version: bool = False):
     """Lazy-load an IDS. ASCII has no lazy loading, so there the full IDS is read."""
-    lazy = not connection.uri.startswith("imas:ascii")
+    lazy = not is_ascii(connection)
     return connection.get(
         ids_name,
         occurrence=occurrence,
@@ -79,20 +87,23 @@ def get_ids_slice(connection, ids_name: str, time_value: float, dd_update: bool 
     HDF5 and MDSplus use get_slice (index is 0). netCDF and ASCII have no get_slice,
     so the whole IDS is read and index points to the same slice.
     """
-    is_ascii = connection.uri.startswith("imas:ascii")
+    ascii_backend = is_ascii(connection)
     # a lazy IDS cannot be converted, and ASCII has no lazy loading
-    lazy = not dd_update and not is_ascii
+    lazy = not dd_update and not ascii_backend
 
     if time_value < 0:
         # default: middle slice, so the time array is needed
-        time_array = connection.get(ids_name, occurrence=occurrence, lazy=not is_ascii, autoconvert=False).time
+        time_array = connection.get(ids_name, occurrence=occurrence, lazy=not ascii_backend, autoconvert=False).time
         if len(time_array) > 0:
             time_value = time_array[len(time_array) // 2]
+
+    # Allow <1 µs tolerance for floating-point rounding errors in stored times.
+    time_value = float(time_value) + 1e-6
 
     try:
         ids = connection.get_slice(
             ids_name,
-            float(time_value),
+            time_value,
             imas.ids_defs.PREVIOUS_INTERP,
             occurrence=occurrence,
             lazy=lazy,
