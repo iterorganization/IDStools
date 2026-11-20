@@ -17,7 +17,6 @@ from idstools.view.common import PlotCanvas
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from rich_argparse import RichHelpFormatter
 
-from idstools.compute.common import get_nearest_time
 from idstools.compute.equilibrium import EquilibriumCompute
 from idstools.database import DBMaster
 from idstools.machinedescription import get_md_data
@@ -28,7 +27,7 @@ from idstools.utils.clihelper import (
     get_file_name,
     rcparam_parser,
 )
-from idstools.utils.idshelper import get_ids_slice
+from idstools.utils.idshelper import get_ids_lazy, get_ids_slice
 from idstools.utils.idslogger import setup_logger
 from idstools.view.domain.mdplot import plot_machine_description
 from idstools.view.equilibrium import EquilibriumView
@@ -125,14 +124,12 @@ if __name__ == "__main__":
     if isinstance(args.md, bool) and args.md is True:
         args.md = [args.uri]
 
-    ids_lazy_equilibrium = connection.get("equilibrium", occurrence=occurrence, lazy=True, autoconvert=False)
+    ids_lazy_equilibrium = get_ids_lazy(connection, "equilibrium", occurrence=occurrence)
 
     if ids_lazy_equilibrium.time is not None and len(ids_lazy_equilibrium.time) > 0:
-        _, time_value = get_nearest_time(ids_lazy_equilibrium.time, args.time)
-        ids_obj_equilibrium = get_ids_slice(
-            connection, "equilibrium", time_value, dd_update=args.dd_update, occurrence=occurrence
+        ids_obj_equilibrium, time_slice, time_value = get_ids_slice(
+            connection, "equilibrium", args.time, dd_update=args.dd_update, occurrence=occurrence
         )
-        time_slice = 0
         view_object = EquilibriumView(ids_obj_equilibrium)
 
         if args.profiles:

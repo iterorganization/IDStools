@@ -7,11 +7,10 @@ try:
 except ImportError:
     import imas
 
-from idstools.compute.common import get_nearest_time
 from idstools.compute.core_profiles import CoreProfilesCompute
 from idstools.compute.edge_profiles import EdgeProfilesCompute
 from idstools.compute.equilibrium import EquilibriumCompute
-from idstools.utils.idshelper import get_available_ids_and_occurrences, get_ids_slice
+from idstools.utils.idshelper import get_available_ids_and_occurrences, get_ids_lazy, get_ids_slice
 
 logger = logging.getLogger("module")
 
@@ -25,8 +24,9 @@ class KineticProfilesCompute:
         self.edge_required = None
 
         self.core_profiles = None
+        self.core_profiles_traces = None  # full core_profiles IDS, for the waveforms
         self.edge_profiles = None
-        self.edge_profiles_occurrence = 0
+        self.occurrence = {}  # occurrence used for each IDS
         self.dd_update = False
         self.equilibrium = None
 
@@ -187,9 +187,8 @@ class KineticProfilesCompute:
                                 self.connection.factory.version,
                             )
                         else:
-                            ids_object = self.connection.get(ids_name, occurrence=occ, lazy=True, autoconvert=False)
-                        if ids_name == "edge_profiles":
-                            self.edge_profiles_occurrence = occ
+                            ids_object = get_ids_lazy(self.connection, ids_name, occurrence=occ)
+                        self.occurrence[ids_name] = occ
 
                         if ids_object.time is not None:
                             if len(ids_object.time) > 0:
@@ -243,48 +242,56 @@ class KineticProfilesCompute:
                 profiles and data based on a given time slice. The `time_slice` parameter is used to specify a
                 part``icular time at which the data should be retrieved and processed.
         """
-        # Search for adequate time slice for display
+        # The full core_profiles IDS is kept for the waveforms (all time slices),
+        # the profiles use only the slice at the requested time
         if self.is_core_profiles_present:
+            self.core_profiles_traces = self.core_profiles
             self.time_array_length_core_profiles = len(self.core_profiles.time)
-            self.time_array_core_profiles = self.core_profiles.time
-            self.time_index_core_profiles, self.time_value_core_profiles = get_nearest_time(
-                self.time_array_core_profiles, time_slice
+            self.time_array_core_profiles = np.asarray(self.core_profiles.time)
+            self.common_time_length = self.time_array_length_core_profiles
+            self.common_time_array = self.time_array_core_profiles
+            self.core_profiles, self.time_index_core_profiles, self.time_value_core_profiles = get_ids_slice(
+                self.connection,
+                "core_profiles",
+                time_slice,
+                dd_update=self.dd_update,
+                occurrence=self.occurrence["core_profiles"],
             )
-            self.common_time_length = len(self.core_profiles.time)
-            self.common_time_array = self.core_profiles.time
+            self.common_time_value = self.time_value_core_profiles
         else:
             self.common_time_length = len(self.edge_profiles.time)
-            self.common_time_array = self.edge_profiles.time
+            self.common_time_array = np.asarray(self.edge_profiles.time)
 
-        self.common_time_index, self.common_time_value = get_nearest_time(self.common_time_array, time_slice)
         # Read equilibrium data for this time slice if present
         if self.is_equilibrium_present:
             self.time_array_length_equilibrium = len(self.equilibrium.time)
-            self.time_array_equilibrium = self.equilibrium.time
-            self.time_index_equilibrium, self.time_value_equilibrium = get_nearest_time(
-                self.time_array_equilibrium, time_slice
+            self.time_array_equilibrium = np.asarray(self.equilibrium.time)
+            self.equilibrium, self.time_index_equilibrium, self.time_value_equilibrium = get_ids_slice(
+                self.connection,
+                "equilibrium",
+                time_slice,
+                dd_update=self.dd_update,
+                occurrence=self.occurrence["equilibrium"],
             )
-        # Add 1D-profiles edge data if present
 
+        # Add 1D-profiles edge data if present
         if self.is_edge_profiles_present:
             self.time_array_length_edge_profiles = len(self.edge_profiles.time)
             self.time_array_edge_profiles = np.asarray(self.edge_profiles.time)
-            self.time_index_edge_profiles, self.time_value_edge_profiles = get_nearest_time(
-                self.time_array_edge_profiles, time_slice
-            )
-            if not self.is_core_profiles_present:
-                self.common_time_array = self.time_array_edge_profiles
             try:
-                self.edge_profiles = get_ids_slice(
+                self.edge_profiles, self.time_index_edge_profiles, self.time_value_edge_profiles = get_ids_slice(
                     self.connection,
                     "edge_profiles",
-                    self.time_value_edge_profiles,
+                    time_slice,
                     dd_update=self.dd_update,
-                    occurrence=self.edge_profiles_occurrence,
+                    occurrence=self.occurrence["edge_profiles"],
                 )
-                self.time_index_edge_profiles = 0
             except Exception as e:
-                logger.warning(f"edge_profiles: could not load time slice {self.time_value_edge_profiles} alone ({e})")
+                logger.error(f"edge_profiles: could not read time slice {time_slice} ({e})")
+                self.is_edge_profiles_present = False
+                return
+            if not self.is_core_profiles_present:
+                self.common_time_value = self.time_value_edge_profiles
             # Read edge_profile data for this time slice
             try:
                 _ = self.edge_profiles.profiles_1d[self.time_index_edge_profiles]
@@ -656,11 +663,9 @@ class KineticProfilesCompute:
                         ):
                             species_map[ispecies] = jspecies
                 if species_map[ispecies] == -99 and self.is_core_profiles_present == 1:
-                    logger.warning(
-                        "Core_profiles species "
-                        + self.core_profiles.profiles_1d[self.time_index_core_profiles].ion[ispecies].label
-                        + " has no partner in edge_profiles!"
-                    )
+                    ion = self.core_profiles.profiles_1d[self.time_index_core_profiles].ion[ispecies]
+                    name = ion.label if hasattr(ion, "label") else ion.name  # DD3/DD4 species name differences
+                    logger.warning(f"Core_profiles species {name} has no partner in edge_profiles!")
             self.species_map = species_map
             return species_map
         return None
@@ -1866,7 +1871,7 @@ class KineticProfilesCompute:
             electrons_temperature = np.array([])
             for i, _ in enumerate(self.time_array_core_profiles):
                 electrons_temperature = np.append(
-                    electrons_temperature, self.core_profiles.profiles_1d[i].electrons.temperature[0]
+                    electrons_temperature, self.core_profiles_traces.profiles_1d[i].electrons.temperature[0]
                 )
 
             waveform["te"]["central"] = electrons_temperature * 1e-3
@@ -1875,7 +1880,7 @@ class KineticProfilesCompute:
             if self.ti_flag == 1:
                 t_i_average = np.array([])
                 for i, _ in enumerate(self.time_array_core_profiles):
-                    t_i_average = np.append(t_i_average, self.core_profiles.profiles_1d[i].t_i_average[0])
+                    t_i_average = np.append(t_i_average, self.core_profiles_traces.profiles_1d[i].t_i_average[0])
                 waveform["ti"]["central"] = t_i_average * 1e-3
                 # (
                 #     self.connection.partial_get("core_profiles", "profiles_1d(:)/t_i_average(0)") * 1e-3
@@ -1885,7 +1890,7 @@ class KineticProfilesCompute:
                     ion_temperature = np.array([])
                     for i, _ in enumerate(self.time_array_core_profiles):
                         ion_temperature = np.append(
-                            ion_temperature, self.core_profiles.profiles_1d[i].ion[0].temperature[0]
+                            ion_temperature, self.core_profiles_traces.profiles_1d[i].ion[0].temperature[0]
                         )
 
                     waveform["ti"]["central"] = ion_temperature * 1e-3
@@ -1898,7 +1903,9 @@ class KineticProfilesCompute:
 
             electrons_density = np.array([])
             for i, _ in enumerate(self.time_array_core_profiles):
-                electrons_density = np.append(electrons_density, self.core_profiles.profiles_1d[i].electrons.density[0])
+                electrons_density = np.append(
+                    electrons_density, self.core_profiles_traces.profiles_1d[i].electrons.density[0]
+                )
 
             waveform["ne"]["central"] = electrons_density
             # self.connection.partial_get(
@@ -1906,7 +1913,7 @@ class KineticProfilesCompute:
             # )
             zeff = np.array([])
             for i, _ in enumerate(self.time_array_core_profiles):
-                zeff = np.append(zeff, self.core_profiles.profiles_1d[i].zeff[0])
+                zeff = np.append(zeff, self.core_profiles_traces.profiles_1d[i].zeff[0])
 
             waveform["zeff"]["central"] = zeff
             # self.connection.partial_get("core_profiles", "profiles_1d(:)/zeff(0)")
@@ -1928,7 +1935,7 @@ class KineticProfilesCompute:
                             ion_density = np.array([])
                             for i, _ in enumerate(self.time_array_core_profiles):
                                 ion_density = np.append(
-                                    ion_density, self.core_profiles.profiles_1d[i].ion[ispecies].density[0]
+                                    ion_density, self.core_profiles_traces.profiles_1d[i].ion[ispecies].density[0]
                                 )
 
                             waveform["n_species"][self.species[ispecies]]["density"]["central"] = ion_density
@@ -1943,7 +1950,7 @@ class KineticProfilesCompute:
                                 for i, _ in enumerate(self.time_array_core_profiles):
                                     velocity_poloidal = np.append(
                                         velocity_poloidal,
-                                        self.core_profiles.profiles_1d[i].ion[ispecies].velocity.poloidal[0],
+                                        self.core_profiles_traces.profiles_1d[i].ion[ispecies].velocity.poloidal[0],
                                     )
                                 waveform["n_species"][self.species[ispecies]]["vpol"]["central"] = velocity_poloidal
                                 # (
@@ -1956,7 +1963,8 @@ class KineticProfilesCompute:
                                 velocity_pol = np.array([])
                                 for i, _ in enumerate(self.time_array_core_profiles):
                                     velocity_pol = np.append(
-                                        velocity_pol, self.core_profiles.profiles_1d[i].ion[ispecies].velocity_pol[0]
+                                        velocity_pol,
+                                        self.core_profiles_traces.profiles_1d[i].ion[ispecies].velocity_pol[0],
                                     )
                                 waveform["n_species"][self.species[ispecies]]["vpol"]["central"] = velocity_pol
                                 # (
@@ -1970,7 +1978,7 @@ class KineticProfilesCompute:
                                 for i, _ in enumerate(self.time_array_core_profiles):
                                     velocity_toroidal = np.append(
                                         velocity_toroidal,
-                                        self.core_profiles.profiles_1d[i].ion[ispecies].velocity.toroidal[0],
+                                        self.core_profiles_traces.profiles_1d[i].ion[ispecies].velocity.toroidal[0],
                                     )
                                 waveform["n_species"][self.species[ispecies]]["vphi"]["central"] = velocity_toroidal
                                 # (
@@ -1983,7 +1991,8 @@ class KineticProfilesCompute:
                                 velocity_tor = np.array([])
                                 for i, _ in enumerate(self.time_array_core_profiles):
                                     velocity_tor = np.append(
-                                        velocity_tor, self.core_profiles.profiles_1d[i].ion[ispecies].velocity_tor[0]
+                                        velocity_tor,
+                                        self.core_profiles_traces.profiles_1d[i].ion[ispecies].velocity_tor[0],
                                     )
                                 waveform["n_species"][self.species[ispecies]]["vphi"]["central"] = velocity_tor
                                 # (

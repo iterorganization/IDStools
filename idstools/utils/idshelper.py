@@ -60,14 +60,57 @@ def parse_uri(uri: str):
     return result
 
 
-def get_ids_slice(connection, ids_name: str, time_value: float, dd_update: bool = False, occurrence: int = 0):
-    """Load a single time slice of an IDS (closest to ``time_value``)."""
-    ids = connection.get_slice(
-        ids_name, float(time_value), imas.ids_defs.CLOSEST_INTERP, occurrence=occurrence, autoconvert=False
+def get_ids_lazy(connection, ids_name: str, occurrence: int = 0, ignore_unknown_dd_version: bool = False):
+    """Lazy-load an IDS. ASCII has no lazy loading, so there the full IDS is read."""
+    lazy = not connection.uri.startswith("imas:ascii")
+    return connection.get(
+        ids_name,
+        occurrence=occurrence,
+        lazy=lazy,
+        autoconvert=False,
+        ignore_unknown_dd_version=ignore_unknown_dd_version,
     )
+
+
+def get_ids_slice(connection, ids_name: str, time_value: float, dd_update: bool = False, occurrence: int = 0):
+    """Load the last time slice of an IDS at or before time_value (a negative time_value selects the middle slice).
+
+    Returns (ids, index, time_value), where time_value = ids.time[index] is the time of the loaded slice.
+    HDF5 and MDSplus use get_slice (index is 0). netCDF and ASCII have no get_slice,
+    so the whole IDS is read and index points to the same slice.
+    """
+    is_ascii = connection.uri.startswith("imas:ascii")
+    # a lazy IDS cannot be converted, and ASCII has no lazy loading
+    lazy = not dd_update and not is_ascii
+
+    if time_value < 0:
+        # default: middle slice, so the time array is needed
+        time_array = connection.get(ids_name, occurrence=occurrence, lazy=not is_ascii, autoconvert=False).time
+        if len(time_array) > 0:
+            time_value = time_array[len(time_array) // 2]
+
+    try:
+        ids = connection.get_slice(
+            ids_name,
+            float(time_value),
+            imas.ids_defs.PREVIOUS_INTERP,
+            occurrence=occurrence,
+            lazy=lazy,
+            autoconvert=False,
+        )
+        index = 0
+    except Exception:
+        # netCDF and ASCII have no get_slice
+        ids = connection.get(ids_name, occurrence=occurrence, lazy=lazy, autoconvert=False)
+        index = max(int(np.searchsorted(np.asarray(ids.time), time_value, side="right")) - 1, 0)
     if dd_update:
         ids = imas.convert_ids(ids, connection.factory.version)
-    return ids
+
+    # ids.time is empty for heterogeneous-time IDSs
+    if len(ids.time) > 0:
+        time_value = float(ids.time[index])
+    logger.info(f"{ids_name}: time = {time_value:.3f} s, index = {index}")
+    return ids, index, time_value
 
 
 def parse_slice_from_string(input_string):
@@ -386,9 +429,7 @@ def get_available_ids_and_occurrences(
             occ_type = ""
 
             try:
-                ids_object = db_entry_object.get(
-                    idstype, occurrence=occ, lazy=True, autoconvert=False, ignore_unknown_dd_version=True
-                )
+                ids_object = get_ids_lazy(db_entry_object, idstype, occurrence=occ, ignore_unknown_dd_version=True)
 
                 dd_version = ids_object.ids_properties.version_put.data_dictionary.value
                 homogeneous_time = ids_object.ids_properties.homogeneous_time
@@ -441,8 +482,8 @@ def get_available_ids_and_times(db_entry_object) -> list:
             time_array = None
             try:
 
-                ids_object = db_entry_object.get(
-                    _ids_name, occurrence=occurrence, lazy=True, autoconvert=False, ignore_unknown_dd_version=True
+                ids_object = get_ids_lazy(
+                    db_entry_object, _ids_name, occurrence=occurrence, ignore_unknown_dd_version=True
                 )
 
                 homogeneous_time = ids_object.ids_properties.homogeneous_time
@@ -499,7 +540,7 @@ def resample_indices(
     """
     idsobj = None
     try:
-        idsobj = dbin.get(idsname, lazy=True, autoconvert=False)
+        idsobj = get_ids_lazy(dbin, idsname)
         times = idsobj.time
     except Exception as e:  # noqa: F841
         logger.error(f"Error occurred while resampling data for {idsname} in the input database. {e}")
@@ -796,7 +837,7 @@ def get_ids_values(uri: str, idspaths: Union[str, list], dd_update=False, verbos
             if dd_update:
                 ids = imas.convert_ids(connection.get(idsname, autoconvert=False), connection.factory.version)
             else:
-                ids = connection.get(idsname, autoconvert=False, lazy=True)
+                ids = get_ids_lazy(connection, idsname)
 
             if ":" in valpath:
                 node, _, _, _ = partial_get(ids, valpath)
