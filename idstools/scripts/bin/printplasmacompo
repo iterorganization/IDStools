@@ -27,6 +27,7 @@ from rich_argparse import RichHelpFormatter
 from idstools.compute.common import get_nearest_time
 from idstools.database import DBMaster
 from idstools.utils.clihelper import dbentry_parser
+from idstools.utils.idshelper import get_ids_lazy, get_ids_slice
 from idstools.utils.idslogger import setup_logger
 from idstools.view.core_profiles import CoreProfilesView
 from idstools.view.edge_profiles import EdgeProfilesView
@@ -77,7 +78,7 @@ if __name__ == "__main__":
             core_profiles_ids = connection.get("core_profiles", autoconvert=False)
             core_profiles_ids = imas.convert_ids(core_profiles_ids, connection.factory.version)
         else:
-            core_profiles_ids = connection.get("core_profiles", lazy=True, autoconvert=False)
+            core_profiles_ids = get_ids_lazy(connection, "core_profiles")
 
         if args.time == -99:
             ne0_list = np.array([])
@@ -101,11 +102,7 @@ if __name__ == "__main__":
     try:
         logger.info("\ngetting edge_profiles slice")
 
-        if args.dd_update:
-            edge_profiles_ids = connection.get("edge_profiles", autoconvert=False)
-            edge_profiles_ids = imas.convert_ids(edge_profiles_ids, connection.factory.version)
-        else:
-            edge_profiles_ids = connection.get("edge_profiles", lazy=True, autoconvert=False)
+        edge_profiles_ids = get_ids_lazy(connection, "edge_profiles")
         if time_slice_core_profiles is None:
             if args.time == -99:
                 ne0_list = np.array([])
@@ -128,6 +125,10 @@ if __name__ == "__main__":
                 time_array_edge_profiles, time_value_core_profiles
             )
         logger.info(f"edge_profiles Time {time_value_edge_profiles}  Index {time_slice_edge_profiles}")
+        edge_profiles_time = np.asarray(edge_profiles_ids.time)
+        edge_profiles_ids, edge_profiles_index, _ = get_ids_slice(
+            connection, "edge_profiles", time_value_edge_profiles, dd_update=args.dd_update
+        )
 
     except Exception as e:
         logger.error(f"Exception occurred, detailed error {e}")
@@ -160,7 +161,7 @@ if __name__ == "__main__":
                     equilibrium_ids = connection.get("equilibrium", autoconvert=False)
                     equilibrium_ids = imas.convert_ids(equilibrium_ids, connection.factory.version)
                 else:
-                    equilibrium_ids = connection.get("equilibrium", lazy=True, autoconvert=False)
+                    equilibrium_ids = get_ids_lazy(connection, "equilibrium")
                 volume = equilibrium_ids.time_slice({time_slice_core_profiles}).profiles_1d.volume
             except Exception as e:
                 logger.warning(f"equilibrium: IDS exists but volume is not present. detailed error {e}")
@@ -182,7 +183,7 @@ if __name__ == "__main__":
         print("edge_profiles")
         print("----------------")
         returnstatus = EdgeProfilesView.view_plasma_composition_with_species_concentration(
-            edge_profiles_ids, time_slice_edge_profiles
+            edge_profiles_ids, edge_profiles_index
         )
         if returnstatus == 0:
             edge_profile_exists = False
@@ -191,10 +192,7 @@ if __name__ == "__main__":
             logger.warning(
                 f"edge_profiles: IDS exists but volume is not set. " f"Trying nearby time slice. This may take a while."
             )
-            edge_profiles = connection.get("edge_profiles", autoconvert=False)
-            if args.dd_update:
-                edge_profiles = imas.convert_ids(edge_profiles, connection.factory.version)
-            time_slices_count = len(edge_profiles.grid_ggd)
+            time_slices_count = len(edge_profiles_time)
             index_list = []
             for counter in range(1, 10):
                 if time_slice_edge_profiles - counter >= 0 and time_slice_edge_profiles - counter < time_slices_count:
@@ -202,18 +200,19 @@ if __name__ == "__main__":
                 if time_slice_edge_profiles + counter >= 0 and time_slice_edge_profiles + counter < time_slices_count:
                     index_list.append(time_slice_edge_profiles + counter)
             for itime_slice in index_list:
+                edge_profiles, islice, _ = get_ids_slice(
+                    connection, "edge_profiles", edge_profiles_time[itime_slice], dd_update=args.dd_update
+                )
                 index = 4
-                elements = edge_profiles.grid_ggd[itime_slice].grid_subset[index].element
-                grid_subset_name = edge_profiles.grid_ggd[itime_slice].grid_subset[index].identifier.name
+                elements = edge_profiles.grid_ggd[islice].grid_subset[index].element
+                grid_subset_name = edge_profiles.grid_ggd[islice].grid_subset[index].identifier.name
                 # check if grid_subset[4] identifier name is cells, if not, find out 'cells' index
                 index_counter = 0
                 if grid_subset_name.lower() != "cells":
-                    for subset in edge_profiles.grid_ggd[itime_slice].grid_subset:
+                    for subset in edge_profiles.grid_ggd[islice].grid_subset:
                         if subset.identifier.name.lower() == "cells":
-                            elements = edge_profiles.grid_ggd[itime_slice].grid_subset[index_counter].element
-                            grid_subset_name = (
-                                edge_profiles.grid_ggd[itime_slice].grid_subset[index_counter].identifier.name
-                            )
+                            elements = edge_profiles.grid_ggd[islice].grid_subset[index_counter].element
+                            grid_subset_name = edge_profiles.grid_ggd[islice].grid_subset[index_counter].identifier.name
                             index = index_counter
                             break
                         index_counter = index_counter + 1
@@ -223,7 +222,7 @@ if __name__ == "__main__":
                         f"electrons density is present in core, Time slice:{itime_slice}"
                     )
                     returnstatus = EdgeProfilesView.view_plasma_composition_with_species_concentration(
-                        edge_profiles_ids, itime_slice
+                        edge_profiles, islice
                     )
                     if returnstatus == 0:
                         edge_profile_exists = False

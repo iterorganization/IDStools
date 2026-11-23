@@ -234,13 +234,15 @@ class KineticProfilesView:
             )
         if self.k_profiles.species:
             for ispecies in range(self.k_profiles.nspecies_core):
+                color = None  # edge curve uses the same color as the core curve
                 if self.k_profiles.is_composition_available and self.k_profiles.is_core_profiles_present:
                     if self.k_profiles.nspec_over_ne[ispecies] > KineticProfilesCompute.IMPURITY_LIMIT:
-                        ax.plot(
+                        (line,) = ax.plot(
                             self.k_profiles.profiles["rhonorm"],
                             self.k_profiles.profiles["n_species"][self.k_profiles.species[ispecies]]["density"],
                             label=r"$n_" + self.k_profiles.species[ispecies] + "$",
                         )
+                        color = line.get_color()
                 if self.k_profiles.is_edge_profiles_present and self.k_profiles.species_map[ispecies] != -99:
                     if (
                         self.k_profiles.nspec_over_ne[ispecies] > KineticProfilesCompute.IMPURITY_LIMIT
@@ -249,6 +251,7 @@ class KineticProfilesView:
                         ax.plot(
                             self.k_profiles.profiles["rhonorm_e"],
                             self.k_profiles.profiles["n_species"][self.k_profiles.species[ispecies]]["density_e"],
+                            color=color,
                             label=r"$n_{" + self.k_profiles.species[ispecies] + ",edge}$",
                         )
         if not self.k_profiles.r_out_graph:
@@ -313,12 +316,14 @@ class KineticProfilesView:
                 for ispecies in range(self.k_profiles.nspecies_core):
                     if self.k_profiles.nspec_over_ne[ispecies] > KineticProfilesCompute.IMPURITY_LIMIT:
                         if "vphi" in self.k_profiles.profiles["n_species"][self.k_profiles.species[ispecies]].keys():
+                            color = None  # edge curve uses the same color as the core curve
                             if self.k_profiles.vphi_flag != 0:
-                                ax.plot(
+                                (line,) = ax.plot(
                                     self.k_profiles.profiles["rhonorm"],
                                     self.k_profiles.profiles["n_species"][self.k_profiles.species[ispecies]]["vphi"],
                                     label=r"$vphi_" + self.k_profiles.species[ispecies] + "$",
                                 )
+                                color = line.get_color()
                             if (
                                 self.k_profiles.is_edge_profiles_present
                                 and self.k_profiles.species_map[ispecies] != -99
@@ -327,6 +332,7 @@ class KineticProfilesView:
                                 ax.plot(
                                     self.k_profiles.profiles["rhonorm_e"],
                                     self.k_profiles.profiles["n_species"][self.k_profiles.species[ispecies]]["vphi_e"],
+                                    color=color,
                                     label=r"$vphi_{" + self.k_profiles.species[ispecies] + ",edge}$",
                                 )
                 if not self.k_profiles.r_out_graph:
@@ -365,12 +371,14 @@ class KineticProfilesView:
                 for ispecies in range(self.k_profiles.nspecies_core):
                     if self.k_profiles.nspec_over_ne[ispecies] > KineticProfilesCompute.IMPURITY_LIMIT:
                         if "vpol" in self.k_profiles.profiles["n_species"][self.k_profiles.species[ispecies]].keys():
+                            color = None  # edge curve uses the same color as the core curve
                             if self.k_profiles.vpol_flag != 0:
-                                ax.plot(
+                                (line,) = ax.plot(
                                     self.k_profiles.profiles["rhonorm"],
                                     self.k_profiles.profiles["n_species"][self.k_profiles.species[ispecies]]["vpol"],
                                     label=r"$vpol_" + self.k_profiles.species[ispecies] + "$",
                                 )
+                                color = line.get_color()
                             if (
                                 self.k_profiles.is_edge_profiles_present
                                 and self.k_profiles.species_map[ispecies] != -99
@@ -379,6 +387,7 @@ class KineticProfilesView:
                                 ax.plot(
                                     self.k_profiles.profiles["rhonorm_e"],
                                     self.k_profiles.profiles["n_species"][self.k_profiles.species[ispecies]]["vpol_e"],
+                                    color=color,
                                     label=r"$vpol_{" + self.k_profiles.species[ispecies] + ",edge}$",
                                 )
                 if not self.k_profiles.r_out_graph:
