@@ -144,6 +144,29 @@ class CoreSourcesCompute:
             return None
         return rho_tor_norm
 
+    def on_common_grid(self, time_slice, source_index, values) -> np.ndarray:
+        """Return a source profile on the common rho_tor_norm grid (see get_rho_tor_norm).
+
+        Each source has its own grid (source[:].profiles_1d[:].grid), so profiles of different
+        sources can have different lengths. They are interpolated before being added together.
+        Empty profiles give zeros.
+        """
+        rho_tor_norm = self.get_rho_tor_norm(time_slice)
+        nrho = 0 if rho_tor_norm is None else len(rho_tor_norm)
+        if len(values) < 1:
+            return np.zeros(nrho)
+        if len(values) == nrho:
+            return np.asarray(values)
+        source_rho = self.ids.source[source_index].profiles_1d[time_slice].grid.rho_tor_norm
+        if len(source_rho) != len(values):
+            logger.warning(
+                f"core_sources.source[{source_index}]: profile has {len(values)} points but its grid has "
+                f"{len(source_rho)}, the profile is ignored"
+            )
+            return np.zeros(nrho)
+        # zero outside the source grid (no source there)
+        return np.interp(rho_tor_norm, source_rho, values, left=values[0], right=0.0)
+
     @functools.lru_cache(maxsize=128)
     def get_valid_and_active_sources(self, time_slice) -> Dict[int, Dict[str, bool]]:
         """
@@ -230,15 +253,11 @@ class CoreSourcesCompute:
         sources = self.get_valid_and_active_sources(time_slice)
         for source_index, source in sources.items():  # range(nsources):
             if source["valid"] and source["active"]:
-                if len(self.ids.source[source_index].profiles_1d[time_slice].j_parallel) > 0:
-                    total_current_profile = (
-                        total_current_profile + self.ids.source[source_index].profiles_1d[time_slice].j_parallel
-                    )
-                    single_current_profile[source_index] = (
-                        self.ids.source[source_index].profiles_1d[time_slice].j_parallel
-                    )
-                else:
-                    single_current_profile[source_index] = np.zeros(nrho)
+                j_parallel = self.on_common_grid(
+                    time_slice, source_index, self.ids.source[source_index].profiles_1d[time_slice].j_parallel
+                )
+                total_current_profile = total_current_profile + j_parallel
+                single_current_profile[source_index] = j_parallel
         return {
             "total_current_profile": total_current_profile,
             "single_current_profile": single_current_profile,
@@ -271,12 +290,9 @@ class CoreSourcesCompute:
         sources = self.get_valid_and_active_sources(time_slice)
         for source_index, source in sources.items():
             if source["valid"] and source["active"]:
-                electrons_energy = self.ids.source[source_index].profiles_1d[time_slice].electrons.energy
-                if len(electrons_energy) < 1:
-                    electrons_energy = np.zeros(nrho)
-                electrons_particles = self.ids.source[source_index].profiles_1d[time_slice].electrons.particles
-                if len(electrons_particles) < 1:
-                    electrons_particles = np.zeros(nrho)
+                electrons = self.ids.source[source_index].profiles_1d[time_slice].electrons
+                electrons_energy = self.on_common_grid(time_slice, source_index, electrons.energy)
+                electrons_particles = self.on_common_grid(time_slice, source_index, electrons.particles)
 
                 total_electron_power_profile = total_electron_power_profile + electrons_energy
                 total_electron_particles_profile = total_electron_particles_profile + electrons_particles
@@ -323,22 +339,21 @@ class CoreSourcesCompute:
                 for ion in self.ids.source[source_index].profiles_1d[time_slice].ion:
                     if len(ion.energy) > 1:
                         single_ions_filled = True
-                        if len(ion.energy) < 1:
-                            ion.energy = [0] * nrho
-                        if len(ion.particles) < 1:
-                            ion.particles = [0] * nrho
+                        ion_energy = self.on_common_grid(time_slice, source_index, ion.energy)
+                        ion_particles = self.on_common_grid(time_slice, source_index, ion.particles)
 
-                        single_ion_power_profile[source_index] = single_ion_power_profile[source_index] + ion.energy
+                        single_ion_power_profile[source_index] = single_ion_power_profile[source_index] + ion_energy
                         single_ion_particles_profile[source_index] = (
-                            single_ion_particles_profile[source_index] + ion.particles
+                            single_ion_particles_profile[source_index] + ion_particles
                         )
 
-                        total_ion_power_profile = total_ion_power_profile + ion.energy
-                        total_ion_particles_profile = total_ion_particles_profile + ion.particles
+                        total_ion_power_profile = total_ion_power_profile + ion_energy
+                        total_ion_particles_profile = total_ion_particles_profile + ion_particles
                 if single_ions_filled is False:
-                    if self.ids.source[source_index].profiles_1d[0].total_ion_energy.has_value:
-                        total_ion_power_profile = (
-                            total_ion_power_profile + self.ids.source[source_index].profiles_1d[0].total_ion_energy
+                    total_ion_energy = self.ids.source[source_index].profiles_1d[time_slice].total_ion_energy
+                    if total_ion_energy.has_value:
+                        total_ion_power_profile = total_ion_power_profile + self.on_common_grid(
+                            time_slice, source_index, total_ion_energy
                         )
         return {
             "total_ion_power_profile": total_ion_power_profile,
