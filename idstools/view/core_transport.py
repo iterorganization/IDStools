@@ -91,10 +91,8 @@ class CoreTransportView:
         logscale=False,
     ):
         tm = ids_core_transport.model[model_index]
-        v = tm.profiles_1d[time_slice].grid_d.volume
         r = tm.profiles_1d[time_slice].grid_d.rho_tor_norm
-        s = tm.profiles_1d[time_slice].grid_d.area
-        vp_per__s = np.gradient(v, r) / s
+        vp_per__s = self._get_vp_per_s(tm.profiles_1d[time_slice].grid_d, ids_equilibrium, time_slice, model_index)
 
         e_compute = EquilibriumCompute(ids_equilibrium)
         gm3 = e_compute.getgm3(r, time_slice)
@@ -132,10 +130,8 @@ class CoreTransportView:
         logscale=False,
     ):
         tm = ids_core_transport.model[model_index]
-        v = tm.profiles_1d[time_slice].grid_d.volume
         r = tm.profiles_1d[time_slice].grid_d.rho_tor_norm
-        s = tm.profiles_1d[time_slice].grid_d.area
-        vp_per__s = np.gradient(v, r) / s
+        vp_per__s = self._get_vp_per_s(tm.profiles_1d[time_slice].grid_d, ids_equilibrium, time_slice, model_index)
 
         e_compute = EquilibriumCompute(ids_equilibrium)
         gm3 = e_compute.getgm3(r, time_slice)
@@ -196,10 +192,8 @@ class CoreTransportView:
         logscale=False,
     ):
         tm = ids_core_transport.model[model_index]
-        v = tm.profiles_1d[time_slice].grid_d.volume
         r = tm.profiles_1d[time_slice].grid_d.rho_tor_norm
-        s = tm.profiles_1d[time_slice].grid_d.area
-        vp_per__s = np.gradient(v, r) / s
+        vp_per__s = self._get_vp_per_s(tm.profiles_1d[time_slice].grid_d, ids_equilibrium, time_slice, model_index)
 
         t_e = tm.profiles_1d[time_slice].electrons
         c_e = ids_core_profiles.profiles_1d[time_slice].electrons
@@ -267,6 +261,34 @@ class CoreTransportView:
         ax.set_xlabel("rho_tor_norm")
         ax.set_ylabel("Particle flux density")
         ax.legend()
+
+    @staticmethod
+    def _get_vp_per_s(grid_d, ids_equilibrium, time_slice, model_index):
+        """dV/drho_tor_norm / area on grid_d.
+
+        grid_d.volume and grid_d.area are optional in the DD. If they are empty,
+        they are taken from equilibrium.time_slice[].profiles_1d and interpolated on grid_d.rho_tor_norm.
+        """
+        r = np.asarray(grid_d.rho_tor_norm)
+        v = np.asarray(grid_d.volume)
+        s = np.asarray(grid_d.area)
+        if len(v) != len(r) or len(s) != len(r):
+            eq = ids_equilibrium.time_slice[time_slice].profiles_1d
+            if len(eq.rho_tor_norm) > 0 and len(eq.volume) == len(eq.rho_tor_norm) == len(eq.area):
+                logger.warning(
+                    f"core_transport.model[{model_index}].profiles_1d.grid_d.volume/area are empty, "
+                    "taken from equilibrium"
+                )
+                v = np.interp(r, eq.rho_tor_norm, eq.volume)
+                s = np.interp(r, eq.rho_tor_norm, eq.area)
+            else:
+                logger.critical(
+                    f"core_transport.model[{model_index}].profiles_1d.grid_d.volume/area and "
+                    "equilibrium volume/area are empty, direct evaluation is not possible"
+                )
+                return np.full(len(r), np.nan)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return np.gradient(v, r) / s
 
     def _validate_electrons(self, t_e, c_e, r, model_index):
         if len(r) != len(c_e.density):
